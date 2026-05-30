@@ -51,7 +51,8 @@ public class StockMapper {
                 """
                 select count(*) from stock s
                 inner join product p on p.id = s.product_id
-                where p.product_code like ? or p.product_name like ? or p.category like ?
+                left join category c on c.id = p.category_id
+                where p.product_code like ? or p.product_name like ? or c.name like ?
                 """,
                 Long.class,
                 like,
@@ -64,10 +65,11 @@ public class StockMapper {
         String like = "%" + (keyword == null ? "" : keyword.trim()) + "%";
         return jdbcTemplate.query(
                 """
-                select s.*, p.product_code, p.product_name, p.category
+                select s.*, p.product_code, p.product_name, c.name as category
                 from stock s
                 inner join product p on p.id = s.product_id
-                where p.product_code like ? or p.product_name like ? or p.category like ?
+                left join category c on c.id = p.category_id
+                where p.product_code like ? or p.product_name like ? or c.name like ?
                 order by s.id desc
                 limit ? offset ?
                 """,
@@ -84,9 +86,10 @@ public class StockMapper {
         try {
             return Optional.ofNullable(jdbcTemplate.queryForObject(
                     """
-                    select s.*, p.product_code, p.product_name, p.category
+                    select s.*, p.product_code, p.product_name, c.name as category
                     from stock s
                     inner join product p on p.id = s.product_id
+                    left join category c on c.id = p.category_id
                     where s.product_id = ?
                     """,
                     stockVORowMapper,
