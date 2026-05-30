@@ -1,5 +1,7 @@
 -- 03_add_sku_tables.sql
 -- 阶段 1：新建 SKU 相关表，现有表加列，迁移旧数据
+-- 用于已执行 01_market.sql 和 02_add_category_table.sql 的旧库升级；
+-- 全新初始化请使用 00_终版.sql，不要把 00 与本增量脚本串联执行。
 
 USE market;
 
@@ -101,3 +103,40 @@ SET oo.sku_id = k.id,
 UPDATE stock_check sc
 INNER JOIN sku k ON k.product_id = sc.product_id AND k.is_default = 1
 SET sc.sku_id = k.id;
+
+-- ============================================================
+-- 第四部分：阶段 2 移除 product 层价格
+-- ============================================================
+-- 旧价格已经迁移到默认 SKU。删除 product 价格列前，先动态删除
+-- MySQL 自动命名的相关 CHECK 约束，避免硬编码约束名。
+
+SET @product_price_checks := (
+    SELECT GROUP_CONCAT(
+               CONCAT('DROP CHECK `', REPLACE(tc.CONSTRAINT_NAME, '`', '``'), '`')
+               SEPARATOR ', '
+           )
+    FROM information_schema.TABLE_CONSTRAINTS tc
+    INNER JOIN information_schema.CHECK_CONSTRAINTS cc
+        ON cc.CONSTRAINT_SCHEMA = tc.CONSTRAINT_SCHEMA
+       AND cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
+    WHERE tc.CONSTRAINT_SCHEMA = DATABASE()
+      AND tc.TABLE_NAME = 'product'
+      AND tc.CONSTRAINT_TYPE = 'CHECK'
+      AND (
+          LOWER(cc.CHECK_CLAUSE) LIKE '%purchase_price%'
+          OR LOWER(cc.CHECK_CLAUSE) LIKE '%sale_price%'
+      )
+);
+
+SET @drop_product_price_checks_sql := IF(
+    @product_price_checks IS NULL,
+    'SELECT 1',
+    CONCAT('ALTER TABLE product ', @product_price_checks)
+);
+
+PREPARE drop_product_price_checks_stmt FROM @drop_product_price_checks_sql;
+EXECUTE drop_product_price_checks_stmt;
+DEALLOCATE PREPARE drop_product_price_checks_stmt;
+
+ALTER TABLE product DROP COLUMN purchase_price;
+ALTER TABLE product DROP COLUMN sale_price;
