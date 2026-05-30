@@ -24,8 +24,6 @@ public class ProductMapper {
         product.setProductCode(rs.getString("product_code"));
         product.setProductName(rs.getString("product_name"));
         product.setCategoryId(rs.getLong("category_id"));
-        product.setPurchasePrice(rs.getBigDecimal("purchase_price"));
-        product.setSalePrice(rs.getBigDecimal("sale_price"));
         product.setStatus(rs.getInt("status"));
         product.setCreateTime(rs.getTimestamp("create_time").toLocalDateTime());
         return product;
@@ -94,17 +92,15 @@ public class ProductMapper {
         jdbcTemplate.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(
                     """
-                    insert into product(product_code, product_name, category_id, purchase_price, sale_price, status)
-                    values (?, ?, ?, ?, ?, ?)
+                    insert into product(product_code, product_name, category_id, status)
+                    values (?, ?, ?, ?)
                     """,
                     Statement.RETURN_GENERATED_KEYS
             );
             ps.setString(1, product.getProductCode());
             ps.setString(2, product.getProductName());
             ps.setLong(3, product.getCategoryId());
-            ps.setBigDecimal(4, product.getPurchasePrice());
-            ps.setBigDecimal(5, product.getSalePrice());
-            ps.setInt(6, product.getStatus());
+            ps.setInt(4, product.getStatus());
             return ps;
         }, keyHolder);
         Number key = keyHolder.getKey();
@@ -115,13 +111,11 @@ public class ProductMapper {
         jdbcTemplate.update(
                 """
                 update product
-                set product_name = ?, category_id = ?, purchase_price = ?, sale_price = ?, status = ?
+                set product_name = ?, category_id = ?, status = ?
                 where id = ?
                 """,
                 product.getProductName(),
                 product.getCategoryId(),
-                product.getPurchasePrice(),
-                product.getSalePrice(),
                 product.getStatus(),
                 product.getId()
         );

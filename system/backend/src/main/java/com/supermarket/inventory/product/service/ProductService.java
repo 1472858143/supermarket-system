@@ -8,6 +8,8 @@ import com.supermarket.inventory.product.entity.Product;
 import com.supermarket.inventory.category.mapper.CategoryMapper;
 import com.supermarket.inventory.product.mapper.ProductMapper;
 import com.supermarket.inventory.product.vo.ProductVO;
+import com.supermarket.inventory.sku.mapper.SkuUsageMapper;
+import com.supermarket.inventory.sku.service.SkuService;
 import com.supermarket.inventory.stock.service.StockService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,11 +20,21 @@ public class ProductService {
     private final ProductMapper productMapper;
     private final StockService stockService;
     private final CategoryMapper categoryMapper;
+    private final SkuService skuService;
+    private final SkuUsageMapper skuUsageMapper;
 
-    public ProductService(ProductMapper productMapper, StockService stockService, CategoryMapper categoryMapper) {
+    public ProductService(
+            ProductMapper productMapper,
+            StockService stockService,
+            CategoryMapper categoryMapper,
+            SkuService skuService,
+            SkuUsageMapper skuUsageMapper
+    ) {
         this.productMapper = productMapper;
         this.stockService = stockService;
         this.categoryMapper = categoryMapper;
+        this.skuService = skuService;
+        this.skuUsageMapper = skuUsageMapper;
     }
 
     public PageResult<ProductVO> list(String keyword, Integer page, Integer pageSize) {
@@ -42,24 +54,23 @@ public class ProductService {
 
     @Transactional
     public ProductVO create(ProductRequest request) {
-        validatePrice(request);
+        validateDefaultSkuPrice(request);
         productMapper.findByCode(request.getProductCode()).ifPresent(product -> {
             throw new BusinessException("商品编号已存在");
         });
         Product product = fromRequest(request);
         Long productId = productMapper.insert(product);
+        Product created = productMapper.findById(productId).orElseThrow(() -> new BusinessException("商品创建失败"));
+        skuService.createDefaultForProduct(created, request.getPurchasePrice(), request.getSalePrice());
         stockService.initializeStock(productId);
-        return toVO(productMapper.findById(productId).orElseThrow(() -> new BusinessException("商品创建失败")));
+        return toVO(created);
     }
 
     @Transactional
     public ProductVO update(Long id, ProductRequest request) {
-        validatePrice(request);
         Product product = productMapper.findById(id).orElseThrow(() -> new BusinessException(404, "商品不存在"));
         product.setProductName(request.getProductName());
         product.setCategoryId(request.getCategoryId());
-        product.setPurchasePrice(request.getPurchasePrice());
-        product.setSalePrice(request.getSalePrice());
         product.setStatus(normalizeStatus(request.getStatus()));
         productMapper.update(product);
         return toVO(productMapper.findById(id).orElseThrow(() -> new BusinessException(404, "商品不存在")));
@@ -68,6 +79,10 @@ public class ProductService {
     @Transactional
     public void delete(Long id) {
         productMapper.findById(id).orElseThrow(() -> new BusinessException(404, "商品不存在"));
+        if (skuUsageMapper.countBusinessReferencesByProductId(id) > 0) {
+            throw new BusinessException("商品已有业务记录，不能删除");
+        }
+        skuService.deleteAllByProductId(id);
         stockService.deleteStockByProductId(id);
         productMapper.delete(id);
     }
@@ -77,8 +92,6 @@ public class ProductService {
         product.setProductCode(request.getProductCode().trim());
         product.setProductName(request.getProductName());
         product.setCategoryId(request.getCategoryId());
-        product.setPurchasePrice(request.getPurchasePrice());
-        product.setSalePrice(request.getSalePrice());
         product.setStatus(normalizeStatus(request.getStatus()));
         return product;
     }
@@ -94,16 +107,17 @@ public class ProductService {
                         .map(c -> c.getName())
                         .orElse("")
         );
-        vo.setPurchasePrice(product.getPurchasePrice());
-        vo.setSalePrice(product.getSalePrice());
+        vo.setSkus(skuService.listByProductId(product.getId()));
         vo.setStatus(product.getStatus());
         vo.setCreateTime(product.getCreateTime());
         return vo;
     }
 
-    private void validatePrice(ProductRequest request) {
-        if (request.getSalePrice().compareTo(request.getPurchasePrice()) < 0) {
-            throw new BusinessException("商品售价不能低于进价");
+    private void validateDefaultSkuPrice(ProductRequest request) {
+        if (request.getSalePrice() != null
+                && request.getPurchasePrice() != null
+                && request.getSalePrice().compareTo(request.getPurchasePrice()) < 0) {
+            throw new BusinessException("默认SKU售价不能低于进价");
         }
     }
 
