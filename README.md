@@ -4,7 +4,7 @@
 
 ## 技术栈
 
-- 前端：Vue 3、Vite、Pinia、Vue Router、Axios
+- 前端：Vue 3
 - 后端：Spring Boot、Spring JDBC、BCrypt、JWT
 - 数据库：MySQL 8.0.44
 - 部署：Nginx + Spring Boot Jar + MySQL，Redis 预留为可选扩展
@@ -18,6 +18,8 @@ E:\Supermarket
 ├─ docs/           项目文档
 └─ sql/            数据库脚本
 ```
+
+文档入口见 [docs/README.md](docs/README.md)。
 
 ## 数据库初始化
 
