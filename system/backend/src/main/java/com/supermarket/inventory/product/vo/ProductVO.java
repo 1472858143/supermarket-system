@@ -8,7 +8,8 @@ public class ProductVO {
     private Long id;
     private String productCode;
     private String productName;
-    private String category;
+    private Long categoryId;
+    private String categoryName;
     private BigDecimal purchasePrice;
     private BigDecimal salePrice;
     private Integer status;
@@ -38,12 +39,20 @@ public class ProductVO {
         this.productName = productName;
     }
 
-    public String getCategory() {
-        return category;
+    public Long getCategoryId() {
+        return categoryId;
     }
 
-    public void setCategory(String category) {
-        this.category = category;
+    public void setCategoryId(Long categoryId) {
+        this.categoryId = categoryId;
+    }
+
+    public String getCategoryName() {
+        return categoryName;
+    }
+
+    public void setCategoryName(String categoryName) {
+        this.categoryName = categoryName;
     }
 
     public BigDecimal getPurchasePrice() {

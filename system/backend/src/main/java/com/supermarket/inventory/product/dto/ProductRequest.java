@@ -14,8 +14,8 @@ public class ProductRequest {
     @NotBlank(message = "商品名称不能为空")
     private String productName;
 
-    @NotBlank(message = "商品分类不能为空")
-    private String category;
+    @NotNull(message = "商品分类不能为空")
+    private Long categoryId;
 
     @NotNull(message = "进价不能为空")
     @DecimalMin(value = "0.00", message = "进价不能小于0")
@@ -43,12 +43,12 @@ public class ProductRequest {
         this.productName = productName;
     }
 
-    public String getCategory() {
-        return category;
+    public Long getCategoryId() {
+        return categoryId;
     }
 
-    public void setCategory(String category) {
-        this.category = category;
+    public void setCategoryId(Long categoryId) {
+        this.categoryId = categoryId;
     }
 
     public BigDecimal getPurchasePrice() {

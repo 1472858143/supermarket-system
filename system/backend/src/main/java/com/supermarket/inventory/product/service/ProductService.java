@@ -5,6 +5,7 @@ import com.supermarket.inventory.common.response.PageResult;
 import com.supermarket.inventory.common.util.PageUtils;
 import com.supermarket.inventory.product.dto.ProductRequest;
 import com.supermarket.inventory.product.entity.Product;
+import com.supermarket.inventory.category.mapper.CategoryMapper;
 import com.supermarket.inventory.product.mapper.ProductMapper;
 import com.supermarket.inventory.product.vo.ProductVO;
 import com.supermarket.inventory.stock.service.StockService;
@@ -16,10 +17,12 @@ public class ProductService {
 
     private final ProductMapper productMapper;
     private final StockService stockService;
+    private final CategoryMapper categoryMapper;
 
-    public ProductService(ProductMapper productMapper, StockService stockService) {
+    public ProductService(ProductMapper productMapper, StockService stockService, CategoryMapper categoryMapper) {
         this.productMapper = productMapper;
         this.stockService = stockService;
+        this.categoryMapper = categoryMapper;
     }
 
     public PageResult<ProductVO> list(String keyword, Integer page, Integer pageSize) {
@@ -54,7 +57,7 @@ public class ProductService {
         validatePrice(request);
         Product product = productMapper.findById(id).orElseThrow(() -> new BusinessException(404, "商品不存在"));
         product.setProductName(request.getProductName());
-        product.setCategory(request.getCategory());
+        product.setCategoryId(request.getCategoryId());
         product.setPurchasePrice(request.getPurchasePrice());
         product.setSalePrice(request.getSalePrice());
         product.setStatus(normalizeStatus(request.getStatus()));
@@ -73,7 +76,7 @@ public class ProductService {
         Product product = new Product();
         product.setProductCode(request.getProductCode().trim());
         product.setProductName(request.getProductName());
-        product.setCategory(request.getCategory());
+        product.setCategoryId(request.getCategoryId());
         product.setPurchasePrice(request.getPurchasePrice());
         product.setSalePrice(request.getSalePrice());
         product.setStatus(normalizeStatus(request.getStatus()));
@@ -85,7 +88,12 @@ public class ProductService {
         vo.setId(product.getId());
         vo.setProductCode(product.getProductCode());
         vo.setProductName(product.getProductName());
-        vo.setCategory(product.getCategory());
+        vo.setCategoryId(product.getCategoryId());
+        vo.setCategoryName(
+                categoryMapper.findById(product.getCategoryId())
+                        .map(c -> c.getName())
+                        .orElse("")
+        );
         vo.setPurchasePrice(product.getPurchasePrice());
         vo.setSalePrice(product.getSalePrice());
         vo.setStatus(product.getStatus());

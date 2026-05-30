@@ -8,7 +8,7 @@ public class Product {
     private Long id;
     private String productCode;
     private String productName;
-    private String category;
+    private Long categoryId;
     private BigDecimal purchasePrice;
     private BigDecimal salePrice;
     private Integer status;
@@ -38,12 +38,12 @@ public class Product {
         this.productName = productName;
     }
 
-    public String getCategory() {
-        return category;
+    public Long getCategoryId() {
+        return categoryId;
     }
 
-    public void setCategory(String category) {
-        this.category = category;
+    public void setCategoryId(Long categoryId) {
+        this.categoryId = categoryId;
     }
 
     public BigDecimal getPurchasePrice() {

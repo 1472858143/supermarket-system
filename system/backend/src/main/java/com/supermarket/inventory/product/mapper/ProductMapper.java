@@ -23,7 +23,7 @@ public class ProductMapper {
         product.setId(rs.getLong("id"));
         product.setProductCode(rs.getString("product_code"));
         product.setProductName(rs.getString("product_name"));
-        product.setCategory(rs.getString("category"));
+        product.setCategoryId(rs.getLong("category_id"));
         product.setPurchasePrice(rs.getBigDecimal("purchase_price"));
         product.setSalePrice(rs.getBigDecimal("sale_price"));
         product.setStatus(rs.getInt("status"));
@@ -38,7 +38,11 @@ public class ProductMapper {
     public long count(String keyword) {
         String like = "%" + (keyword == null ? "" : keyword.trim()) + "%";
         return jdbcTemplate.queryForObject(
-                "select count(*) from product where product_code like ? or product_name like ? or category like ?",
+                """
+                select count(*) from product p
+                left join category c on c.id = p.category_id
+                where p.product_code like ? or p.product_name like ? or c.name like ?
+                """,
                 Long.class,
                 like,
                 like,
@@ -50,9 +54,10 @@ public class ProductMapper {
         String like = "%" + (keyword == null ? "" : keyword.trim()) + "%";
         return jdbcTemplate.query(
                 """
-                select * from product
-                where product_code like ? or product_name like ? or category like ?
-                order by id desc
+                select p.* from product p
+                left join category c on c.id = p.category_id
+                where p.product_code like ? or p.product_name like ? or c.name like ?
+                order by p.id desc
                 limit ? offset ?
                 """,
                 productRowMapper,
@@ -89,14 +94,14 @@ public class ProductMapper {
         jdbcTemplate.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(
                     """
-                    insert into product(product_code, product_name, category, purchase_price, sale_price, status)
+                    insert into product(product_code, product_name, category_id, purchase_price, sale_price, status)
                     values (?, ?, ?, ?, ?, ?)
                     """,
                     Statement.RETURN_GENERATED_KEYS
             );
             ps.setString(1, product.getProductCode());
             ps.setString(2, product.getProductName());
-            ps.setString(3, product.getCategory());
+            ps.setLong(3, product.getCategoryId());
             ps.setBigDecimal(4, product.getPurchasePrice());
             ps.setBigDecimal(5, product.getSalePrice());
             ps.setInt(6, product.getStatus());
@@ -110,11 +115,11 @@ public class ProductMapper {
         jdbcTemplate.update(
                 """
                 update product
-                set product_name = ?, category = ?, purchase_price = ?, sale_price = ?, status = ?
+                set product_name = ?, category_id = ?, purchase_price = ?, sale_price = ?, status = ?
                 where id = ?
                 """,
                 product.getProductName(),
-                product.getCategory(),
+                product.getCategoryId(),
                 product.getPurchasePrice(),
                 product.getSalePrice(),
                 product.getStatus(),

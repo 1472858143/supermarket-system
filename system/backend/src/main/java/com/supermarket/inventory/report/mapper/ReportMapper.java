@@ -52,7 +52,7 @@ public class ReportMapper {
                 """
                 select p.product_code as productCode,
                        p.product_name as productName,
-                       p.category,
+                       c.name as category,
                        s.quantity,
                        s.min_stock as minStock,
                        s.max_stock as maxStock,
@@ -63,6 +63,7 @@ public class ReportMapper {
                        end as warningStatus
                 from stock s
                 inner join product p on p.id = s.product_id
+                left join category c on c.id = p.category_id
                 where s.quantity < s.min_stock or s.quantity > s.max_stock
                 order by s.update_time desc
                 """
