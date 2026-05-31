@@ -272,10 +272,14 @@ async function handleLogin() {
 
 onMounted(() => {
   refreshCaptcha()
+  // 设置 body 深色背景，避免 zoom 缩放后露出全局浅色背景
+  document.body.style.background = '#061236'
 })
 
 onBeforeUnmount(() => {
   if (toastTimer.value) clearTimeout(toastTimer.value)
+  // 恢复 body 默认背景
+  document.body.style.background = ''
 })
 </script>
 
