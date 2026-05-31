@@ -34,66 +34,62 @@ public class StockService {
         );
     }
 
-    public StockVO getByProductId(Long productId) {
-        return stockMapper.findVOByProductId(productId)
+    public StockVO getBySkuId(Long skuId) {
+        return stockMapper.findVOBySkuId(skuId)
                 .orElseThrow(() -> new BusinessException(404, "库存记录不存在"));
     }
 
     @Transactional
-    public void initializeStock(Long productId) {
-        // 商品创建后立即补齐库存行，后续入库、出库和盘点都依赖这条记录。
-        if (stockMapper.findByProductIdForUpdate(productId).isEmpty()) {
-            stockMapper.insertInitialStock(productId);
+    public void initializeStock(Long skuId) {
+        if (stockMapper.findBySkuIdForUpdate(skuId).isEmpty()) {
+            stockMapper.insertInitialStock(skuId);
         }
     }
 
     @Transactional
-    public StockVO updateLimit(Long productId, StockLimitUpdateRequest request) {
+    public StockVO updateLimit(Long skuId, StockLimitUpdateRequest request) {
         stockDomainService.validateLimit(request.getMinStock(), request.getMaxStock());
-        stockMapper.findByProductIdForUpdate(productId)
+        stockMapper.findBySkuIdForUpdate(skuId)
                 .orElseThrow(() -> new BusinessException(404, "库存记录不存在"));
-        stockMapper.updateLimit(productId, request.getMinStock(), request.getMaxStock());
-        return getByProductId(productId);
+        stockMapper.updateLimit(skuId, request.getMinStock(), request.getMaxStock());
+        return getBySkuId(skuId);
     }
 
     @Transactional
-    public StockVO increase(Long productId, int quantity) {
-        Stock stock = lockStock(productId);
+    public StockVO increase(Long skuId, int quantity) {
+        Stock stock = lockStock(skuId);
         int afterQuantity = stockDomainService.increase(stock.getQuantity(), quantity);
-        stockMapper.updateQuantity(productId, afterQuantity);
-        // 库存日志只记录变化事实，入库单本身负责记录业务原因和操作人。
-        stockMapper.insertLog(productId, "INBOUND", quantity, stock.getQuantity(), afterQuantity);
-        return getByProductId(productId);
+        stockMapper.updateQuantity(skuId, afterQuantity);
+        stockMapper.insertLog(skuId, "INBOUND", quantity, stock.getQuantity(), afterQuantity);
+        return getBySkuId(skuId);
     }
 
     @Transactional
-    public StockVO decrease(Long productId, int quantity) {
-        Stock stock = lockStock(productId);
+    public StockVO decrease(Long skuId, int quantity) {
+        Stock stock = lockStock(skuId);
         int afterQuantity = stockDomainService.decrease(stock.getQuantity(), quantity);
-        stockMapper.updateQuantity(productId, afterQuantity);
-        // 出库日志使用负数变化量，便于报表按方向聚合库存变化。
-        stockMapper.insertLog(productId, "OUTBOUND", -quantity, stock.getQuantity(), afterQuantity);
-        return getByProductId(productId);
+        stockMapper.updateQuantity(skuId, afterQuantity);
+        stockMapper.insertLog(skuId, "OUTBOUND", -quantity, stock.getQuantity(), afterQuantity);
+        return getBySkuId(skuId);
     }
 
     @Transactional
-    public StockVO adjustTo(Long productId, int actualQuantity) {
-        Stock stock = lockStock(productId);
+    public StockVO adjustTo(Long skuId, int actualQuantity) {
+        Stock stock = lockStock(skuId);
         int afterQuantity = stockDomainService.adjustTo(actualQuantity);
         int difference = afterQuantity - stock.getQuantity();
-        stockMapper.updateQuantity(productId, afterQuantity);
-        stockMapper.insertLog(productId, "CHECK", difference, stock.getQuantity(), afterQuantity);
-        return getByProductId(productId);
+        stockMapper.updateQuantity(skuId, afterQuantity);
+        stockMapper.insertLog(skuId, "CHECK", difference, stock.getQuantity(), afterQuantity);
+        return getBySkuId(skuId);
     }
 
-    public Stock lockStock(Long productId) {
-        // 使用 FOR UPDATE 锁定单个商品库存，保证并发入库、出库、盘点时数量一致。
-        return stockMapper.findByProductIdForUpdate(productId)
+    public Stock lockStock(Long skuId) {
+        return stockMapper.findBySkuIdForUpdate(skuId)
                 .orElseThrow(() -> new BusinessException(404, "库存记录不存在"));
     }
 
     @Transactional
-    public void deleteStockByProductId(Long productId) {
-        stockMapper.deleteByProductId(productId);
+    public void deleteStockBySkuId(Long skuId) {
+        stockMapper.deleteBySkuId(skuId);
     }
 }

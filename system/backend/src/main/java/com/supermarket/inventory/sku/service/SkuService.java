@@ -12,6 +12,7 @@ import com.supermarket.inventory.sku.mapper.SkuUsageMapper;
 import com.supermarket.inventory.sku.mapper.UnitConversionMapper;
 import com.supermarket.inventory.sku.vo.SkuVO;
 import com.supermarket.inventory.sku.vo.UnitConversionVO;
+import com.supermarket.inventory.stock.service.StockService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,17 +27,20 @@ public class SkuService {
     private final UnitConversionMapper unitConversionMapper;
     private final ProductMapper productMapper;
     private final SkuUsageMapper skuUsageMapper;
+    private final StockService stockService;
 
     public SkuService(
             SkuMapper skuMapper,
             UnitConversionMapper unitConversionMapper,
             ProductMapper productMapper,
-            SkuUsageMapper skuUsageMapper
+            SkuUsageMapper skuUsageMapper,
+            StockService stockService
     ) {
         this.skuMapper = skuMapper;
         this.unitConversionMapper = unitConversionMapper;
         this.productMapper = productMapper;
         this.skuUsageMapper = skuUsageMapper;
+        this.stockService = stockService;
     }
 
     public List<SkuVO> listByProductId(Long productId) {
@@ -62,6 +66,7 @@ public class SkuService {
         if (created.getId() == null) {
             created.setId(id);
         }
+        stockService.initializeStock(id);
         return toVO(created);
     }
 
@@ -84,6 +89,7 @@ public class SkuService {
         if (created.getId() == null) {
             created.setId(id);
         }
+        stockService.initializeStock(id);
         return toVO(created);
     }
 
@@ -107,12 +113,15 @@ public class SkuService {
             throw new BusinessException("SKU已有业务记录，不能删除");
         }
 
+        stockService.deleteStockBySkuId(skuId);
         unitConversionMapper.deleteBySkuId(skuId);
         skuMapper.delete(skuId);
     }
 
     @Transactional
     public void deleteAllByProductId(Long productId) {
+        skuMapper.findByProductId(productId)
+                .forEach(sku -> stockService.deleteStockBySkuId(sku.getId()));
         unitConversionMapper.deleteByProductId(productId);
         skuMapper.deleteByProductId(productId);
     }

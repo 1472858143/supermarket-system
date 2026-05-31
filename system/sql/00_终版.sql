@@ -95,16 +95,13 @@ CREATE TABLE sku_unit_conversion (
 
 CREATE TABLE stock (
                        id BIGINT PRIMARY KEY AUTO_INCREMENT,
-                       product_id BIGINT NOT NULL,
-                       sku_id BIGINT NULL,
+                       sku_id BIGINT NOT NULL,
                        quantity INT NOT NULL,
                        min_stock INT NOT NULL,
                        max_stock INT NOT NULL,
                        update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
                            ON UPDATE CURRENT_TIMESTAMP,
-                       UNIQUE KEY uk_stock_product (product_id),
-                       CONSTRAINT fk_stock_product
-                           FOREIGN KEY (product_id) REFERENCES product(id),
+                       UNIQUE KEY uk_stock_sku (sku_id),
                        CONSTRAINT fk_stock_sku
                            FOREIGN KEY (sku_id) REFERENCES sku(id),
                        CHECK (quantity >= 0),
@@ -164,15 +161,12 @@ CREATE TABLE stock_check (
 
 CREATE TABLE stock_log (
                            id BIGINT PRIMARY KEY AUTO_INCREMENT,
-                           product_id BIGINT NOT NULL,
-                           sku_id BIGINT NULL,
+                           sku_id BIGINT NOT NULL,
                            change_type VARCHAR(20) NOT NULL COMMENT 'INBOUND / OUTBOUND / CHECK',
                            change_quantity INT NOT NULL,
                            before_quantity INT NOT NULL,
                            after_quantity INT NOT NULL,
                            create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                           CONSTRAINT fk_stock_log_product
-                               FOREIGN KEY (product_id) REFERENCES product(id),
                            CONSTRAINT fk_stock_log_sku
                                FOREIGN KEY (sku_id) REFERENCES sku(id),
                            CHECK (after_quantity >= 0)

@@ -50,7 +50,9 @@ public class ReportMapper {
     public List<Map<String, Object>> warningStocks() {
         return jdbcTemplate.queryForList(
                 """
-                select p.product_code as productCode,
+                select k.sku_code as skuCode,
+                       k.sku_name as skuName,
+                       p.product_code as productCode,
                        p.product_name as productName,
                        c.name as category,
                        s.quantity,
@@ -62,7 +64,8 @@ public class ReportMapper {
                          else 'NORMAL'
                        end as warningStatus
                 from stock s
-                inner join product p on p.id = s.product_id
+                inner join sku k on k.id = s.sku_id
+                inner join product p on p.id = k.product_id
                 left join category c on c.id = p.category_id
                 where s.quantity < s.min_stock or s.quantity > s.max_stock
                 order by s.update_time desc

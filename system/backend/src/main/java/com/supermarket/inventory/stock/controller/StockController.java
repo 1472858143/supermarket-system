@@ -34,17 +34,17 @@ public class StockController {
         return ApiResponse.success(stockService.list(keyword, page, pageSize));
     }
 
-    @GetMapping("/{productId}")
-    public ApiResponse<StockVO> getByProductId(@PathVariable Long productId) {
-        return ApiResponse.success(stockService.getByProductId(productId));
+    @GetMapping("/{skuId}")
+    public ApiResponse<StockVO> getBySkuId(@PathVariable Long skuId) {
+        return ApiResponse.success(stockService.getBySkuId(skuId));
     }
 
-    @PutMapping("/{productId}/limit")
+    @PutMapping("/{skuId}/limit")
     @RequireRoles("ADMIN")
     public ApiResponse<StockVO> updateLimit(
-            @PathVariable Long productId,
+            @PathVariable Long skuId,
             @Valid @RequestBody StockLimitUpdateRequest request
     ) {
-        return ApiResponse.success(stockService.updateLimit(productId, request));
+        return ApiResponse.success(stockService.updateLimit(skuId, request));
     }
 }

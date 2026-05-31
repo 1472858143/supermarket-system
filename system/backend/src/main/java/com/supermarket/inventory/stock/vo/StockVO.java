@@ -5,7 +5,11 @@ import java.time.LocalDateTime;
 public class StockVO {
 
     private Long id;
-    private Long productId;
+    private Long skuId;
+    private String skuCode;
+    private String skuName;
+    private String spec;
+    private String baseUnit;
     private String productCode;
     private String productName;
     private String category;
@@ -23,12 +27,44 @@ public class StockVO {
         this.id = id;
     }
 
-    public Long getProductId() {
-        return productId;
+    public Long getSkuId() {
+        return skuId;
     }
 
-    public void setProductId(Long productId) {
-        this.productId = productId;
+    public void setSkuId(Long skuId) {
+        this.skuId = skuId;
+    }
+
+    public String getSkuCode() {
+        return skuCode;
+    }
+
+    public void setSkuCode(String skuCode) {
+        this.skuCode = skuCode;
+    }
+
+    public String getSkuName() {
+        return skuName;
+    }
+
+    public void setSkuName(String skuName) {
+        this.skuName = skuName;
+    }
+
+    public String getSpec() {
+        return spec;
+    }
+
+    public void setSpec(String spec) {
+        this.spec = spec;
+    }
+
+    public String getBaseUnit() {
+        return baseUnit;
+    }
+
+    public void setBaseUnit(String baseUnit) {
+        this.baseUnit = baseUnit;
     }
 
     public String getProductCode() {
