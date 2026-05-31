@@ -8,7 +8,7 @@
     </div>
     <div v-if="message" class="message" :class="messageType === 'error' ? 'message-error' : 'message-success'">{{ message }}</div>
     <section class="card">
-      <PageToolbar v-model:keyword="query.keyword" placeholder="商品编号、名称或分类" @search="reload" @reset="resetQuery" />
+      <PageToolbar v-model:keyword="query.keyword" placeholder="商品编号、名称、SKU或分类" @search="reload" @reset="resetQuery" />
       <BaseTable :columns="columns" :items="items" :total="total" :page="query.page" :page-size="query.pageSize" :loading="loading" :show-actions="canMaintainLimit" empty-text="暂无库存记录" @page-change="changePage">
         <template #cell-warningStatus="{ item }">
           <StatusTag type="warning" :value="item.warningStatus" />
@@ -22,7 +22,7 @@
       <form class="form-grid">
         <label class="form-item full">
           <span class="form-label">商品</span>
-          <input class="input" :value="currentProductName" disabled />
+          <input class="input" :value="currentStockLabel" disabled />
         </label>
         <label class="form-item">
           <span class="form-label">库存下限</span>
@@ -54,6 +54,9 @@ import { useAuthStore } from '../../stores/auth'
 const columns = [
   { key: 'productCode', title: '商品编号' },
   { key: 'productName', title: '商品名称' },
+  { key: 'skuCode', title: 'SKU编码' },
+  { key: 'spec', title: '规格' },
+  { key: 'baseUnit', title: '基础单位' },
   { key: 'category', title: '分类' },
   { key: 'quantity', title: '当前库存' },
   { key: 'minStock', title: '下限' },
@@ -67,13 +70,17 @@ const total = ref(0)
 const loading = ref(false)
 const submitting = ref(false)
 const dialogVisible = ref(false)
-const editingProductId = ref(null)
-const editingProduct = ref(null)
+const editingSkuId = ref(null)
+const editingStock = ref(null)
 const message = ref('')
 const messageType = ref('success')
 const form = reactive({ minStock: 0, maxStock: 100 })
 const authStore = useAuthStore()
-const currentProductName = computed(() => editingProduct.value ? `${editingProduct.value.productCode} / ${editingProduct.value.productName}` : '')
+const currentStockLabel = computed(() => {
+  if (!editingStock.value) return ''
+  const { productCode, productName, skuCode, spec } = editingStock.value
+  return [productCode, productName, skuCode, spec].filter(Boolean).join(' / ')
+})
 const canMaintainLimit = computed(() => authStore.hasRole('ADMIN'))
 
 function showMessage(text, type = 'success') { message.value = text; messageType.value = type }
@@ -93,8 +100,8 @@ function reload() { query.page = 1; loadData() }
 function resetQuery() { query.keyword = ''; reload() }
 function changePage(page) { query.page = page; loadData() }
 function openLimit(item) {
-  editingProductId.value = item.productId
-  editingProduct.value = item
+  editingSkuId.value = item.skuId
+  editingStock.value = item
   form.minStock = item.minStock
   form.maxStock = item.maxStock
   dialogVisible.value = true
@@ -102,7 +109,7 @@ function openLimit(item) {
 async function submit() {
   submitting.value = true
   try {
-    await updateStockLimit(editingProductId.value, form)
+    await updateStockLimit(editingSkuId.value, form)
     dialogVisible.value = false
     showMessage('库存上下限已更新')
     loadData()
