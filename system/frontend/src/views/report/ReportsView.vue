@@ -32,6 +32,29 @@
     <section class="card">
       <div class="page-header">
         <div>
+          <h2 class="page-title">库存预警</h2>
+          <p class="page-desc">库存低于下限或超过上限的 SKU</p>
+        </div>
+      </div>
+      <BaseTable
+        :columns="warningColumns"
+        :items="warnings"
+        :total="warnings.length"
+        :page="1"
+        :page-size="warnings.length || 10"
+        :loading="loading"
+        id-key="skuCode"
+        empty-text="暂无库存预警"
+      >
+        <template #cell-warningStatus="{ item }">
+          <StatusTag type="warning" :value="item.warningStatus" />
+        </template>
+      </BaseTable>
+    </section>
+
+    <section class="card">
+      <div class="page-header">
+        <div>
           <h2 class="page-title">库存变化趋势</h2>
           <p class="page-desc">按日期和库存变化类型聚合展示</p>
         </div>
@@ -52,13 +75,26 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import BaseTable from '../../components/BaseTable.vue'
-import { getInboundReport, getOutboundReport, getStockReport } from '../../api/report'
+import StatusTag from '../../components/StatusTag.vue'
+import { getInboundReport, getOutboundReport, getStockReport, getWarningReport } from '../../api/report'
 
 const loading = ref(false)
 const message = ref('')
 const stock = ref({})
 const inbound = ref({})
 const outbound = ref({})
+const warnings = ref([])
+const warningColumns = [
+  { key: 'productCode', title: '商品编号' },
+  { key: 'productName', title: '商品名称' },
+  { key: 'skuCode', title: 'SKU编码' },
+  { key: 'skuName', title: 'SKU名称' },
+  { key: 'category', title: '分类' },
+  { key: 'quantity', title: '当前库存' },
+  { key: 'minStock', title: '下限' },
+  { key: 'maxStock', title: '上限' },
+  { key: 'warningStatus', title: '预警' }
+]
 const trendColumns = [
   { key: 'statDate', title: '日期' },
   { key: 'changeType', title: '类型' },
@@ -70,14 +106,16 @@ async function loadData() {
   loading.value = true
   message.value = ''
   try {
-    const [stockData, inboundData, outboundData] = await Promise.all([
+    const [stockData, inboundData, outboundData, warningData] = await Promise.all([
       getStockReport(),
       getInboundReport(),
-      getOutboundReport()
+      getOutboundReport(),
+      getWarningReport()
     ])
     stock.value = stockData || {}
     inbound.value = inboundData || {}
     outbound.value = outboundData || {}
+    warnings.value = warningData || []
   } catch (error) {
     message.value = error.message
   } finally {
