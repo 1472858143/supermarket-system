@@ -5,10 +5,15 @@ import java.time.LocalDateTime;
 public class OutboundVO {
 
     private Long id;
-    private Long productId;
+    private Long skuId;
+    private String skuCode;
+    private String skuName;
     private String productCode;
     private String productName;
     private Integer quantity;
+    private String unit;
+    private Integer conversionRate;
+    private Integer baseQuantity;
     private String operator;
     private LocalDateTime createTime;
 
@@ -20,12 +25,28 @@ public class OutboundVO {
         this.id = id;
     }
 
-    public Long getProductId() {
-        return productId;
+    public Long getSkuId() {
+        return skuId;
     }
 
-    public void setProductId(Long productId) {
-        this.productId = productId;
+    public void setSkuId(Long skuId) {
+        this.skuId = skuId;
+    }
+
+    public String getSkuCode() {
+        return skuCode;
+    }
+
+    public void setSkuCode(String skuCode) {
+        this.skuCode = skuCode;
+    }
+
+    public String getSkuName() {
+        return skuName;
+    }
+
+    public void setSkuName(String skuName) {
+        this.skuName = skuName;
     }
 
     public String getProductCode() {
@@ -50,6 +71,30 @@ public class OutboundVO {
 
     public void setQuantity(Integer quantity) {
         this.quantity = quantity;
+    }
+
+    public String getUnit() {
+        return unit;
+    }
+
+    public void setUnit(String unit) {
+        this.unit = unit;
+    }
+
+    public Integer getConversionRate() {
+        return conversionRate;
+    }
+
+    public void setConversionRate(Integer conversionRate) {
+        this.conversionRate = conversionRate;
+    }
+
+    public Integer getBaseQuantity() {
+        return baseQuantity;
+    }
+
+    public void setBaseQuantity(Integer baseQuantity) {
+        this.baseQuantity = baseQuantity;
     }
 
     public String getOperator() {

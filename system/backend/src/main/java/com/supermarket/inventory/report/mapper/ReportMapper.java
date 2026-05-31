@@ -32,7 +32,7 @@ public class ReportMapper {
     public Map<String, Object> inboundSummary() {
         return jdbcTemplate.queryForMap(
                 """
-                select count(*) as orderCount, coalesce(sum(quantity), 0) as totalQuantity
+                select count(*) as orderCount, coalesce(sum(base_quantity), 0) as totalQuantity
                 from inbound_order
                 """
         );
@@ -41,7 +41,7 @@ public class ReportMapper {
     public Map<String, Object> outboundSummary() {
         return jdbcTemplate.queryForMap(
                 """
-                select count(*) as orderCount, coalesce(sum(quantity), 0) as totalQuantity
+                select count(*) as orderCount, coalesce(sum(base_quantity), 0) as totalQuantity
                 from outbound_order
                 """
         );

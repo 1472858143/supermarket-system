@@ -7,8 +7,7 @@ import com.supermarket.inventory.common.util.PageUtils;
 import com.supermarket.inventory.outbound.dto.OutboundRequest;
 import com.supermarket.inventory.outbound.mapper.OutboundMapper;
 import com.supermarket.inventory.outbound.vo.OutboundVO;
-import com.supermarket.inventory.sku.entity.Sku;
-import com.supermarket.inventory.sku.mapper.SkuMapper;
+import com.supermarket.inventory.sku.service.SkuUnitResolver;
 import com.supermarket.inventory.stock.service.StockService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,12 +17,12 @@ public class OutboundService {
 
     private final OutboundMapper outboundMapper;
     private final StockService stockService;
-    private final SkuMapper skuMapper;
+    private final SkuUnitResolver skuUnitResolver;
 
-    public OutboundService(OutboundMapper outboundMapper, StockService stockService, SkuMapper skuMapper) {
+    public OutboundService(OutboundMapper outboundMapper, StockService stockService, SkuUnitResolver skuUnitResolver) {
         this.outboundMapper = outboundMapper;
         this.stockService = stockService;
-        this.skuMapper = skuMapper;
+        this.skuUnitResolver = skuUnitResolver;
     }
 
     public PageResult<OutboundVO> list(String keyword, Integer page, Integer pageSize) {
@@ -40,11 +39,25 @@ public class OutboundService {
     @Transactional
     public void create(OutboundRequest request) {
         String operator = resolveOperator(request.getOperator());
-        Sku defaultSku = skuMapper.findDefaultByProductId(request.getProductId())
-                .orElseThrow(() -> new BusinessException("该商品无默认SKU"));
-        // 先扣减库存再写出库单，库存不足时事务回滚且不会留下出库记录。
-        stockService.decrease(defaultSku.getId(), request.getQuantity());
-        outboundMapper.insert(request.getProductId(), request.getQuantity(), operator);
+        SkuUnitResolver.ResolvedUnit resolvedUnit = skuUnitResolver.resolve(request.getSkuId(), request.getUnit());
+        int baseQuantity = calculateBaseQuantity(request.getQuantity(), resolvedUnit.conversionRate());
+        stockService.decrease(resolvedUnit.sku().getId(), baseQuantity);
+        outboundMapper.insert(
+                resolvedUnit.sku().getId(),
+                request.getQuantity(),
+                resolvedUnit.unit(),
+                resolvedUnit.conversionRate(),
+                baseQuantity,
+                operator
+        );
+    }
+
+    private int calculateBaseQuantity(int quantity, int conversionRate) {
+        try {
+            return Math.multiplyExact(quantity, conversionRate);
+        } catch (ArithmeticException ex) {
+            throw new BusinessException("基础单位数量超出范围");
+        }
     }
 
     private String resolveOperator(String operator) {

@@ -5,19 +5,19 @@ import jakarta.validation.constraints.NotNull;
 
 public class StockCheckRequest {
 
-    @NotNull(message = "商品ID不能为空")
-    private Long productId;
+    @NotNull(message = "SKU ID不能为空")
+    private Long skuId;
 
     @NotNull(message = "实际库存不能为空")
     @Min(value = 0, message = "实际库存不能小于0")
     private Integer actualQuantity;
 
-    public Long getProductId() {
-        return productId;
+    public Long getSkuId() {
+        return skuId;
     }
 
-    public void setProductId(Long productId) {
-        this.productId = productId;
+    public void setSkuId(Long skuId) {
+        this.skuId = skuId;
     }
 
     public Integer getActualQuantity() {

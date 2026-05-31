@@ -1,6 +1,6 @@
 -- 00_终版.sql
--- 阶段 2 后的新库完整结构快照。
--- 用于全新初始化数据库；不要与 01/02/03 增量升级脚本串联执行。
+-- 阶段 4 后的新库完整结构快照。
+-- 用于全新初始化数据库；不要与 01/02/03/04/05 增量升级脚本串联执行。
 
 CREATE DATABASE IF NOT EXISTS market
     DEFAULT CHARACTER SET utf8mb4
@@ -111,16 +111,13 @@ CREATE TABLE stock (
 
 CREATE TABLE inbound_order (
                                id BIGINT PRIMARY KEY AUTO_INCREMENT,
-                               product_id BIGINT NOT NULL,
-                               sku_id BIGINT NULL,
+                               sku_id BIGINT NOT NULL,
                                quantity INT NOT NULL,
                                unit VARCHAR(20) NOT NULL DEFAULT '个' COMMENT '操作单位',
                                conversion_rate INT NOT NULL DEFAULT 1 COMMENT '换算率快照',
                                base_quantity INT NOT NULL DEFAULT 0 COMMENT '换算后基础单位数量',
                                operator VARCHAR(50) NOT NULL,
                                create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                               CONSTRAINT fk_inbound_product
-                                   FOREIGN KEY (product_id) REFERENCES product(id),
                                CONSTRAINT fk_inbound_sku
                                    FOREIGN KEY (sku_id) REFERENCES sku(id),
                                CHECK (quantity > 0)
@@ -128,16 +125,13 @@ CREATE TABLE inbound_order (
 
 CREATE TABLE outbound_order (
                                 id BIGINT PRIMARY KEY AUTO_INCREMENT,
-                                product_id BIGINT NOT NULL,
-                                sku_id BIGINT NULL,
+                                sku_id BIGINT NOT NULL,
                                 quantity INT NOT NULL,
                                 unit VARCHAR(20) NOT NULL DEFAULT '个' COMMENT '操作单位',
                                 conversion_rate INT NOT NULL DEFAULT 1 COMMENT '换算率快照',
                                 base_quantity INT NOT NULL DEFAULT 0 COMMENT '换算后基础单位数量',
                                 operator VARCHAR(50) NOT NULL,
                                 create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                                CONSTRAINT fk_outbound_product
-                                    FOREIGN KEY (product_id) REFERENCES product(id),
                                 CONSTRAINT fk_outbound_sku
                                     FOREIGN KEY (sku_id) REFERENCES sku(id),
                                 CHECK (quantity > 0)
@@ -145,14 +139,11 @@ CREATE TABLE outbound_order (
 
 CREATE TABLE stock_check (
                              id BIGINT PRIMARY KEY AUTO_INCREMENT,
-                             product_id BIGINT NOT NULL,
-                             sku_id BIGINT NULL,
+                             sku_id BIGINT NOT NULL,
                              system_quantity INT NOT NULL,
                              actual_quantity INT NOT NULL,
                              difference INT NOT NULL,
                              check_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                             CONSTRAINT fk_stock_check_product
-                                 FOREIGN KEY (product_id) REFERENCES product(id),
                              CONSTRAINT fk_stock_check_sku
                                  FOREIGN KEY (sku_id) REFERENCES sku(id),
                              CHECK (system_quantity >= 0),

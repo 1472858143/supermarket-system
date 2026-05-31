@@ -38,4 +38,28 @@ class ReportMapperTest {
         assertThat(sql).contains("p.product_code as productCode");
         assertThat(sql).doesNotContain("p.id = s." + "product_id");
     }
+
+    @Test
+    void inboundSummary_sumsBaseQuantity() {
+        reportMapper.inboundSummary();
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).queryForMap(sqlCaptor.capture());
+
+        String sql = sqlCaptor.getValue();
+        assertThat(sql).contains("sum(base_quantity)");
+        assertThat(sql).doesNotContain("sum(quantity)");
+    }
+
+    @Test
+    void outboundSummary_sumsBaseQuantity() {
+        reportMapper.outboundSummary();
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).queryForMap(sqlCaptor.capture());
+
+        String sql = sqlCaptor.getValue();
+        assertThat(sql).contains("sum(base_quantity)");
+        assertThat(sql).doesNotContain("sum(quantity)");
+    }
 }

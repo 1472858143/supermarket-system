@@ -5,7 +5,9 @@ import java.time.LocalDateTime;
 public class StockCheckVO {
 
     private Long id;
-    private Long productId;
+    private Long skuId;
+    private String skuCode;
+    private String skuName;
     private String productCode;
     private String productName;
     private Integer systemQuantity;
@@ -21,12 +23,28 @@ public class StockCheckVO {
         this.id = id;
     }
 
-    public Long getProductId() {
-        return productId;
+    public Long getSkuId() {
+        return skuId;
     }
 
-    public void setProductId(Long productId) {
-        this.productId = productId;
+    public void setSkuId(Long skuId) {
+        this.skuId = skuId;
+    }
+
+    public String getSkuCode() {
+        return skuCode;
+    }
+
+    public void setSkuCode(String skuCode) {
+        this.skuCode = skuCode;
+    }
+
+    public String getSkuName() {
+        return skuName;
+    }
+
+    public void setSkuName(String skuName) {
+        this.skuName = skuName;
     }
 
     public String getProductCode() {

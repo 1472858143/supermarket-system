@@ -38,6 +38,17 @@ class SkuUsageMapperTest {
         String sql = sqlCaptor.getValue();
         Object[] args = argsCaptor.getValue();
 
+        assertThat(sql).doesNotContain("inbound_order o where o.product_id");
+        assertThat(sql).doesNotContain("outbound_order o where o.product_id");
+        assertThat(sql).doesNotContain("stock_check c where c.product_id");
+        assertThat(sql).doesNotContain("o.product_id = ?");
+        assertThat(sql).doesNotContain("c.product_id = ?");
+        assertThat(sql).contains("from inbound_order o where exists");
+        assertThat(sql).contains("s.id = o.sku_id");
+        assertThat(sql).contains("from outbound_order o where exists");
+        assertThat(sql).contains("s.id = o.sku_id");
+        assertThat(sql).contains("from stock_check c where exists");
+        assertThat(sql).contains("s.id = c.sku_id");
         assertThat(sql).doesNotContain("stock_log l where l.product_id");
         assertThat(sql).doesNotContain("l.product_id = ?");
         assertThat(sql).contains("from stock_log l where exists");

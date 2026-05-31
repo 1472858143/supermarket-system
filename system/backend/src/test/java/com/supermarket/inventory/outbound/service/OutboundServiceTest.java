@@ -1,10 +1,10 @@
 package com.supermarket.inventory.outbound.service;
 
-import com.supermarket.inventory.common.exception.BusinessException;
 import com.supermarket.inventory.outbound.dto.OutboundRequest;
 import com.supermarket.inventory.outbound.mapper.OutboundMapper;
+import com.supermarket.inventory.common.exception.BusinessException;
 import com.supermarket.inventory.sku.entity.Sku;
-import com.supermarket.inventory.sku.mapper.SkuMapper;
+import com.supermarket.inventory.sku.service.SkuUnitResolver;
 import com.supermarket.inventory.stock.service.StockService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,9 +12,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.Optional;
-
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -29,50 +28,75 @@ class OutboundServiceTest {
     private StockService stockService;
 
     @Mock
-    private SkuMapper skuMapper;
+    private SkuUnitResolver skuUnitResolver;
 
     private OutboundService outboundService;
 
     @BeforeEach
     void setUp() {
-        outboundService = new OutboundService(outboundMapper, stockService, skuMapper);
+        outboundService = new OutboundService(outboundMapper, stockService, skuUnitResolver);
     }
 
     @Test
-    void create_decreasesDefaultSkuStockAndKeepsProductOutboundRecord() {
-        when(skuMapper.findDefaultByProductId(7L)).thenReturn(Optional.of(defaultSku(20L, 7L)));
+    void create_decreasesBaseQuantityStockBeforeWritingOutboundRecord() {
+        when(skuUnitResolver.resolve(20L, "箱"))
+                .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(20L), "箱", 24));
 
-        outboundService.create(request(7L, 3, "operator"));
+        outboundService.create(request(20L, 2, "箱", 24, "operator"));
 
-        verify(stockService).decrease(20L, 3);
-        verify(outboundMapper).insert(7L, 3, "operator");
+        var inOrder = inOrder(stockService, outboundMapper);
+        inOrder.verify(stockService).decrease(20L, 48);
+        inOrder.verify(outboundMapper).insert(20L, 2, "箱", 24, 48, "operator");
     }
 
     @Test
-    void create_rejectsProductWithoutDefaultSkuAndDoesNotDecreaseStockOrInsertRecord() {
-        when(skuMapper.findDefaultByProductId(7L)).thenReturn(Optional.empty());
+    void create_usesBaseUnitWhenUnitIsNotProvided() {
+        when(skuUnitResolver.resolve(20L, null))
+                .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(20L), "瓶", 1));
 
-        assertThatThrownBy(() -> outboundService.create(request(7L, 3, "operator")))
+        outboundService.create(request(20L, 10, null, null, "operator"));
+
+        verify(stockService).decrease(20L, 10);
+        verify(outboundMapper).insert(20L, 10, "瓶", 1, 10, "operator");
+    }
+
+    @Test
+    void create_usesResolverConversionRateInsteadOfRequestSnapshot() {
+        when(skuUnitResolver.resolve(20L, "箱"))
+                .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(20L), "箱", 24));
+
+        outboundService.create(request(20L, 2, "箱", 999, "operator"));
+
+        verify(stockService).decrease(20L, 48);
+        verify(outboundMapper).insert(20L, 2, "箱", 24, 48, "operator");
+    }
+
+    @Test
+    void create_rejectsBaseQuantityOverflow() {
+        when(skuUnitResolver.resolve(20L, "箱"))
+                .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(20L), "箱", 2));
+
+        assertThatThrownBy(() -> outboundService.create(request(20L, Integer.MAX_VALUE, "箱", 2, "operator")))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("该商品无默认SKU");
+                .hasMessage("基础单位数量超出范围");
 
-        verify(stockService, never()).decrease(20L, 3);
-        verify(outboundMapper, never()).insert(7L, 3, "operator");
+        verify(stockService, never()).decrease(20L, -2);
+        verify(outboundMapper, never()).insert(20L, Integer.MAX_VALUE, "箱", 2, -2, "operator");
     }
 
-    private OutboundRequest request(Long productId, Integer quantity, String operator) {
+    private OutboundRequest request(Long skuId, Integer quantity, String unit, Integer conversionRate, String operator) {
         OutboundRequest request = new OutboundRequest();
-        request.setProductId(productId);
+        request.setSkuId(skuId);
         request.setQuantity(quantity);
+        request.setUnit(unit);
+        request.setConversionRate(conversionRate);
         request.setOperator(operator);
         return request;
     }
 
-    private Sku defaultSku(Long id, Long productId) {
+    private Sku sku(Long id) {
         Sku sku = new Sku();
         sku.setId(id);
-        sku.setProductId(productId);
-        sku.setIsDefault(1);
         return sku;
     }
 }

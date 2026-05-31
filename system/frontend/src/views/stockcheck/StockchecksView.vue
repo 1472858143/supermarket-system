@@ -8,24 +8,16 @@
     </div>
     <div v-if="message" class="message" :class="messageType === 'error' ? 'message-error' : 'message-success'">{{ message }}</div>
     <section class="card">
-      <PageToolbar v-model:keyword="query.keyword" placeholder="商品编号或名称" @search="reload" @reset="resetQuery">
+      <PageToolbar v-model:keyword="query.keyword" placeholder="商品编号、名称或SKU" @search="reload" @reset="resetQuery">
         <PermissionButton :roles="['ADMIN']" button-class="btn-primary" icon="+" @click="openCreate">新增盘点</PermissionButton>
       </PageToolbar>
       <BaseTable :columns="columns" :items="items" :total="total" :page="query.page" :page-size="query.pageSize" :loading="loading" empty-text="暂无盘点记录" @page-change="changePage" />
     </section>
     <BaseDialog v-model="dialogVisible" title="新增盘点">
       <form class="form-grid">
+        <SkuSelector v-model="form.skuId" :products="products" @sku-selected="handleSkuSelected" />
         <label class="form-item full">
-          <span class="form-label">商品</span>
-          <select v-model.number="form.productId" class="select">
-            <option :value="null">请选择商品</option>
-            <option v-for="product in products" :key="product.id" :value="product.id">
-              {{ product.productCode }} / {{ product.productName }}
-            </option>
-          </select>
-        </label>
-        <label class="form-item full">
-          <span class="form-label">实际库存</span>
+          <span class="form-label">实际库存{{ selectedSku?.baseUnit ? `（${selectedSku.baseUnit}）` : '' }}</span>
           <input v-model.number="form.actualQuantity" class="input" type="number" min="0" />
         </label>
       </form>
@@ -43,12 +35,15 @@ import BaseDialog from '../../components/BaseDialog.vue'
 import BaseTable from '../../components/BaseTable.vue'
 import PageToolbar from '../../components/PageToolbar.vue'
 import PermissionButton from '../../components/PermissionButton.vue'
+import SkuSelector from '../../components/SkuSelector.vue'
 import { listProducts } from '../../api/product'
 import { createStockcheck, listStockchecks } from '../../api/stockcheck'
 
 const columns = [
   { key: 'productCode', title: '商品编号' },
   { key: 'productName', title: '商品名称' },
+  { key: 'skuCode', title: 'SKU编码' },
+  { key: 'skuName', title: 'SKU名称' },
   { key: 'systemQuantity', title: '系统库存' },
   { key: 'actualQuantity', title: '实际库存' },
   { key: 'difference', title: '差异' },
@@ -57,13 +52,14 @@ const columns = [
 const query = reactive({ keyword: '', page: 1, pageSize: 10 })
 const items = ref([])
 const products = ref([])
+const selectedSku = ref(null)
 const total = ref(0)
 const loading = ref(false)
 const submitting = ref(false)
 const dialogVisible = ref(false)
 const message = ref('')
 const messageType = ref('success')
-const form = reactive({ productId: null, actualQuantity: 0 })
+const form = reactive({ skuId: null, actualQuantity: 0 })
 
 function showMessage(text, type = 'success') { message.value = text; messageType.value = type }
 async function loadData() {
@@ -79,21 +75,33 @@ async function loadData() {
   }
 }
 async function loadProducts() {
-  const data = await listProducts({ page: 1, pageSize: 100 })
-  products.value = data.items || []
+  try {
+    const data = await listProducts({ page: 1, pageSize: 100 })
+    products.value = data.items || []
+  } catch (error) {
+    showMessage(error.message, 'error')
+  }
+}
+function handleSkuSelected(sku) {
+  selectedSku.value = sku
+  form.skuId = sku?.id || null
 }
 function reload() { query.page = 1; loadData() }
 function resetQuery() { query.keyword = ''; reload() }
 function changePage(page) { query.page = page; loadData() }
-function openCreate() { Object.assign(form, { productId: null, actualQuantity: 0 }); dialogVisible.value = true }
+function openCreate() {
+  selectedSku.value = null
+  Object.assign(form, { skuId: null, actualQuantity: 0 })
+  dialogVisible.value = true
+}
 async function submit() {
-  if (!form.productId || form.actualQuantity < 0) {
-    showMessage('请选择商品并填写正确实际库存', 'error')
+  if (!form.skuId || form.actualQuantity < 0) {
+    showMessage('请选择SKU并填写正确实际库存', 'error')
     return
   }
   submitting.value = true
   try {
-    await createStockcheck(form)
+    await createStockcheck({ skuId: form.skuId, actualQuantity: form.actualQuantity })
     dialogVisible.value = false
     showMessage('盘点成功')
     loadData()
@@ -103,5 +111,5 @@ async function submit() {
     submitting.value = false
   }
 }
-onMounted(async () => { await loadProducts(); await loadData() })
+onMounted(() => { loadProducts(); loadData() })
 </script>

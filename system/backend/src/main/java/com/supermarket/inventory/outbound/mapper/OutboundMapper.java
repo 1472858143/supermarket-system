@@ -15,10 +15,15 @@ public class OutboundMapper {
     private final RowMapper<OutboundVO> rowMapper = (rs, rowNum) -> {
         OutboundVO vo = new OutboundVO();
         vo.setId(rs.getLong("id"));
-        vo.setProductId(rs.getLong("product_id"));
+        vo.setSkuId(rs.getLong("sku_id"));
+        vo.setSkuCode(rs.getString("sku_code"));
+        vo.setSkuName(rs.getString("sku_name"));
         vo.setProductCode(rs.getString("product_code"));
         vo.setProductName(rs.getString("product_name"));
         vo.setQuantity(rs.getInt("quantity"));
+        vo.setUnit(rs.getString("unit"));
+        vo.setConversionRate(rs.getInt("conversion_rate"));
+        vo.setBaseQuantity(rs.getInt("base_quantity"));
         vo.setOperator(rs.getString("operator"));
         vo.setCreateTime(rs.getTimestamp("create_time").toLocalDateTime());
         return vo;
@@ -33,10 +38,14 @@ public class OutboundMapper {
         return jdbcTemplate.queryForObject(
                 """
                 select count(*) from outbound_order o
-                inner join product p on p.id = o.product_id
-                where p.product_code like ? or p.product_name like ? or o.operator like ?
+                inner join sku k on k.id = o.sku_id
+                inner join product p on p.id = k.product_id
+                where p.product_code like ? or p.product_name like ?
+                   or k.sku_code like ? or k.sku_name like ? or o.operator like ?
                 """,
                 Long.class,
+                like,
+                like,
                 like,
                 like,
                 like
@@ -47,14 +56,18 @@ public class OutboundMapper {
         String like = "%" + (keyword == null ? "" : keyword.trim()) + "%";
         return jdbcTemplate.query(
                 """
-                select o.*, p.product_code, p.product_name
+                select o.*, k.sku_code, k.sku_name, p.product_code, p.product_name
                 from outbound_order o
-                inner join product p on p.id = o.product_id
-                where p.product_code like ? or p.product_name like ? or o.operator like ?
+                inner join sku k on k.id = o.sku_id
+                inner join product p on p.id = k.product_id
+                where p.product_code like ? or p.product_name like ?
+                   or k.sku_code like ? or k.sku_name like ? or o.operator like ?
                 order by o.id desc
                 limit ? offset ?
                 """,
                 rowMapper,
+                like,
+                like,
                 like,
                 like,
                 like,
@@ -63,11 +76,17 @@ public class OutboundMapper {
         );
     }
 
-    public void insert(Long productId, int quantity, String operator) {
+    public void insert(Long skuId, int quantity, String unit, int conversionRate, int baseQuantity, String operator) {
         jdbcTemplate.update(
-                "insert into outbound_order(product_id, quantity, operator) values (?, ?, ?)",
-                productId,
+                """
+                insert into outbound_order(sku_id, quantity, unit, conversion_rate, base_quantity, operator)
+                values (?, ?, ?, ?, ?, ?)
+                """,
+                skuId,
                 quantity,
+                unit,
+                conversionRate,
+                baseQuantity,
                 operator
         );
     }

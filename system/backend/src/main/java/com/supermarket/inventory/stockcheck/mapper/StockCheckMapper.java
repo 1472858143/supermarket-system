@@ -15,7 +15,9 @@ public class StockCheckMapper {
     private final RowMapper<StockCheckVO> rowMapper = (rs, rowNum) -> {
         StockCheckVO vo = new StockCheckVO();
         vo.setId(rs.getLong("id"));
-        vo.setProductId(rs.getLong("product_id"));
+        vo.setSkuId(rs.getLong("sku_id"));
+        vo.setSkuCode(rs.getString("sku_code"));
+        vo.setSkuName(rs.getString("sku_name"));
         vo.setProductCode(rs.getString("product_code"));
         vo.setProductName(rs.getString("product_name"));
         vo.setSystemQuantity(rs.getInt("system_quantity"));
@@ -34,10 +36,14 @@ public class StockCheckMapper {
         return jdbcTemplate.queryForObject(
                 """
                 select count(*) from stock_check c
-                inner join product p on p.id = c.product_id
+                inner join sku k on k.id = c.sku_id
+                inner join product p on p.id = k.product_id
                 where p.product_code like ? or p.product_name like ?
+                   or k.sku_code like ? or k.sku_name like ?
                 """,
                 Long.class,
+                like,
+                like,
                 like,
                 like
         );
@@ -47,14 +53,18 @@ public class StockCheckMapper {
         String like = "%" + (keyword == null ? "" : keyword.trim()) + "%";
         return jdbcTemplate.query(
                 """
-                select c.*, p.product_code, p.product_name
+                select c.*, k.sku_code, k.sku_name, p.product_code, p.product_name
                 from stock_check c
-                inner join product p on p.id = c.product_id
+                inner join sku k on k.id = c.sku_id
+                inner join product p on p.id = k.product_id
                 where p.product_code like ? or p.product_name like ?
+                   or k.sku_code like ? or k.sku_name like ?
                 order by c.id desc
                 limit ? offset ?
                 """,
                 rowMapper,
+                like,
+                like,
                 like,
                 like,
                 pageSize,
@@ -62,13 +72,13 @@ public class StockCheckMapper {
         );
     }
 
-    public void insert(Long productId, int systemQuantity, int actualQuantity, int difference) {
+    public void insert(Long skuId, int systemQuantity, int actualQuantity, int difference) {
         jdbcTemplate.update(
                 """
-                insert into stock_check(product_id, system_quantity, actual_quantity, difference)
+                insert into stock_check(sku_id, system_quantity, actual_quantity, difference)
                 values (?, ?, ?, ?)
                 """,
-                productId,
+                skuId,
                 systemQuantity,
                 actualQuantity,
                 difference
