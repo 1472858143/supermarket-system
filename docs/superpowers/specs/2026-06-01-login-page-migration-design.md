@@ -104,7 +104,7 @@ const toastVisible = ref(false)       // Toast 显隐
 ### 组织方式
 
 所有样式写入 `<style scoped>`，包含：
-1. CSS 变量 — 深蓝主题色系，定义在组件根元素
+1. CSS 变量 — 深蓝主题色系，定义在 `.login-page`（组件根元素 class）上，而非 `:root`
 2. 布局样式 — stage、topbar、grid layout、card
 3. 组件样式 — field、tabs、submit、captcha、checkbox
 4. 动画 — `@keyframes rise` 入场动画
