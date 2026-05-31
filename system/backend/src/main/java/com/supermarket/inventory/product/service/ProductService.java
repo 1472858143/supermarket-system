@@ -50,7 +50,6 @@ public class ProductService {
 
     @Transactional
     public ProductVO create(ProductRequest request) {
-        validateDefaultSkuPrice(request);
         productMapper.findByCode(request.getProductCode()).ifPresent(product -> {
             throw new BusinessException("商品编号已存在");
         });
@@ -58,7 +57,6 @@ public class ProductService {
         Long productId = productMapper.insert(product);
         Product created = productMapper.findById(productId)
                 .orElseThrow(() -> new BusinessException("商品创建失败"));
-        skuService.createDefaultForProduct(created, request.getPurchasePrice(), request.getSalePrice());
         return toVO(created);
     }
 
@@ -108,14 +106,6 @@ public class ProductService {
         vo.setStatus(product.getStatus());
         vo.setCreateTime(product.getCreateTime());
         return vo;
-    }
-
-    private void validateDefaultSkuPrice(ProductRequest request) {
-        if (request.getSalePrice() != null
-                && request.getPurchasePrice() != null
-                && request.getSalePrice().compareTo(request.getPurchasePrice()) < 0) {
-            throw new BusinessException("默认SKU售价不能低于进价");
-        }
     }
 
     private int normalizeStatus(Integer status) {

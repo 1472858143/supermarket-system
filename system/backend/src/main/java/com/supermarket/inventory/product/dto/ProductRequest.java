@@ -1,10 +1,7 @@
 package com.supermarket.inventory.product.dto;
 
-import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-
-import java.math.BigDecimal;
 
 public class ProductRequest {
 
@@ -16,14 +13,6 @@ public class ProductRequest {
 
     @NotNull(message = "商品分类不能为空")
     private Long categoryId;
-
-    @NotNull(message = "默认SKU进价不能为空")
-    @DecimalMin(value = "0.00", message = "默认SKU进价不能小于0")
-    private BigDecimal purchasePrice;
-
-    @NotNull(message = "默认SKU售价不能为空")
-    @DecimalMin(value = "0.00", message = "默认SKU售价不能小于0")
-    private BigDecimal salePrice;
 
     private Integer status = 1;
 
@@ -49,22 +38,6 @@ public class ProductRequest {
 
     public void setCategoryId(Long categoryId) {
         this.categoryId = categoryId;
-    }
-
-    public BigDecimal getPurchasePrice() {
-        return purchasePrice;
-    }
-
-    public void setPurchasePrice(BigDecimal purchasePrice) {
-        this.purchasePrice = purchasePrice;
-    }
-
-    public BigDecimal getSalePrice() {
-        return salePrice;
-    }
-
-    public void setSalePrice(BigDecimal salePrice) {
-        this.salePrice = salePrice;
     }
 
     public Integer getStatus() {

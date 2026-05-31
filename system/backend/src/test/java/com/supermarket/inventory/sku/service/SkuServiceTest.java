@@ -68,18 +68,25 @@ class SkuServiceTest {
         ArgumentCaptor<Sku> skuCaptor = ArgumentCaptor.forClass(Sku.class);
         verify(skuMapper).insert(skuCaptor.capture());
         assertThat(skuCaptor.getValue().getSkuCode()).isEqualTo("P001-002");
+        assertThat(skuCaptor.getValue().getIsDefault()).isEqualTo(0);
         assertThat(created.getSkuCode()).isEqualTo("P001-002");
         verify(stockService).initializeStock(20L);
     }
 
     @Test
-    void createDefaultForProduct_initializesDefaultSkuStock() {
-        Product product = product(7L, "P001");
+    void create_marksFirstSkuAsDefaultAndInitializesStock() {
+        when(productMapper.findById(7L)).thenReturn(Optional.of(product(7L, "P001")));
+        when(skuMapper.countByProductId(7L)).thenReturn(0);
+        when(skuMapper.findByCode("P001-001")).thenReturn(Optional.empty());
         when(skuMapper.insert(any(Sku.class))).thenReturn(20L);
         when(skuMapper.findById(20L)).thenReturn(Optional.of(sku(20L, 7L, "P001-001", 1)));
 
-        SkuVO created = skuService.createDefaultForProduct(product, new BigDecimal("8.00"), new BigDecimal("10.00"));
+        SkuVO created = skuService.create(7L, skuRequest("500ml", "500ml/bottle", "6900000000010", "bottle", "8.00", "10.00", 1));
 
+        ArgumentCaptor<Sku> skuCaptor = ArgumentCaptor.forClass(Sku.class);
+        verify(skuMapper).insert(skuCaptor.capture());
+        assertThat(skuCaptor.getValue().getSkuCode()).isEqualTo("P001-001");
+        assertThat(skuCaptor.getValue().getIsDefault()).isEqualTo(1);
         assertThat(created.getId()).isEqualTo(20L);
         verify(stockService).initializeStock(20L);
     }

@@ -55,34 +55,12 @@ public class SkuService {
                 .orElseThrow(() -> new BusinessException(404, "商品不存在"));
         validatePrice(request.getPurchasePrice(), request.getSalePrice());
 
+        int existingSkuCount = skuMapper.countByProductId(product.getId());
         Sku sku = new Sku();
         sku.setProductId(product.getId());
-        sku.setSkuCode(generateSkuCode(product));
+        sku.setSkuCode(generateSkuCode(product, existingSkuCount + 1));
         applyRequest(sku, request);
-        sku.setIsDefault(0);
-
-        Long id = skuMapper.insert(sku);
-        Sku created = skuMapper.findById(id).orElse(sku);
-        if (created.getId() == null) {
-            created.setId(id);
-        }
-        stockService.initializeStock(id);
-        return toVO(created);
-    }
-
-    @Transactional
-    public SkuVO createDefaultForProduct(Product product, BigDecimal purchasePrice, BigDecimal salePrice) {
-        Sku sku = new Sku();
-        sku.setProductId(product.getId());
-        sku.setSkuCode(product.getProductCode() + "-001");
-        sku.setSkuName(product.getProductName());
-        sku.setSpec("默认规格");
-        sku.setBarcode(null);
-        sku.setBaseUnit("个");
-        sku.setPurchasePrice(purchasePrice);
-        sku.setSalePrice(salePrice);
-        sku.setStatus(normalizeStatus(product.getStatus()));
-        sku.setIsDefault(1);
+        sku.setIsDefault(existingSkuCount == 0 ? 1 : 0);
 
         Long id = skuMapper.insert(sku);
         Sku created = skuMapper.findById(id).orElse(sku);
@@ -197,8 +175,8 @@ public class SkuService {
         return conversion;
     }
 
-    private String generateSkuCode(Product product) {
-        int next = skuMapper.countByProductId(product.getId()) + 1;
+    private String generateSkuCode(Product product, int initialSequence) {
+        int next = initialSequence;
         String code;
         do {
             code = product.getProductCode() + "-" + String.format("%03d", next);

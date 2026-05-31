@@ -9,7 +9,6 @@ import com.supermarket.inventory.product.mapper.ProductMapper;
 import com.supermarket.inventory.product.vo.ProductVO;
 import com.supermarket.inventory.sku.mapper.SkuUsageMapper;
 import com.supermarket.inventory.sku.service.SkuService;
-import com.supermarket.inventory.sku.vo.SkuVO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,7 +16,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -25,8 +23,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.only;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -53,29 +51,19 @@ class ProductServiceTest {
     }
 
     @Test
-    void create_insertsProductWithoutPricesAndCreatesDefaultSku() {
-        ProductRequest request = productRequest("P001", "Cola", 3L, "2.00", "3.50", 1);
-        SkuVO defaultSku = defaultSku();
+    void create_insertsProductWithoutCreatingSku() {
+        ProductRequest request = productRequest("P001", "Cola", 3L, 1);
 
         when(productMapper.findByCode("P001")).thenReturn(Optional.empty());
         when(productMapper.insert(any(Product.class))).thenReturn(7L);
         when(productMapper.findById(7L)).thenReturn(Optional.of(product(7L, "P001", "Cola", 3L, 1)));
         when(categoryMapper.findById(3L)).thenReturn(Optional.of(category(3L, "Drink")));
-        when(skuService.createDefaultForProduct(
-                any(Product.class),
-                eq(new BigDecimal("2.00")),
-                eq(new BigDecimal("3.50"))
-        )).thenReturn(defaultSku);
-        when(skuService.listByProductId(7L)).thenReturn(List.of(defaultSku));
+        when(skuService.listByProductId(7L)).thenReturn(List.of());
 
         ProductVO vo = productService.create(request);
 
-        assertThat(vo.getSkus()).hasSize(1);
-        verify(skuService).createDefaultForProduct(
-                any(Product.class),
-                eq(new BigDecimal("2.00")),
-                eq(new BigDecimal("3.50"))
-        );
+        assertThat(vo.getSkus()).isEmpty();
+        verify(skuService, only()).listByProductId(7L);
 
         ArgumentCaptor<Product> productCaptor = ArgumentCaptor.forClass(Product.class);
         verify(productMapper).insert(productCaptor.capture());
@@ -90,7 +78,7 @@ class ProductServiceTest {
     void update_doesNotPassPricesToProductEntity() {
         Product existing = product(7L, "P001", "Old name", 3L, 1);
         Product updated = product(7L, "P001", "New name", 4L, 0);
-        ProductRequest request = productRequest("P001", "New name", 4L, "9.99", "19.99", 0);
+        ProductRequest request = productRequest("P001", "New name", 4L, 0);
 
         when(productMapper.findById(7L)).thenReturn(Optional.of(existing), Optional.of(updated));
         when(categoryMapper.findById(4L)).thenReturn(Optional.of(category(4L, "Drink")));
@@ -135,16 +123,12 @@ class ProductServiceTest {
             String productCode,
             String productName,
             Long categoryId,
-            String purchasePrice,
-            String salePrice,
             Integer status
     ) {
         ProductRequest request = new ProductRequest();
         request.setProductCode(productCode);
         request.setProductName(productName);
         request.setCategoryId(categoryId);
-        request.setPurchasePrice(new BigDecimal(purchasePrice));
-        request.setSalePrice(new BigDecimal(salePrice));
         request.setStatus(status);
         return request;
     }
@@ -167,18 +151,4 @@ class ProductServiceTest {
         return category;
     }
 
-    private SkuVO defaultSku() {
-        SkuVO sku = new SkuVO();
-        sku.setId(10L);
-        sku.setProductId(7L);
-        sku.setSkuCode("P001-001");
-        sku.setSkuName("Cola");
-        sku.setSpec("Default");
-        sku.setBaseUnit("bottle");
-        sku.setPurchasePrice(new BigDecimal("2.00"));
-        sku.setSalePrice(new BigDecimal("3.50"));
-        sku.setStatus(1);
-        sku.setIsDefault(1);
-        return sku;
-    }
 }
