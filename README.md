@@ -26,7 +26,7 @@ E:\Supermarket
 先在 MySQL 中执行：
 
 ```sql
-source E:/Supermarket/sql/market.sql;
+source E:/Supermarket/system/sql/00_终版.sql;
 ```
 
 后端启动时会在数据库为空时自动初始化两个角色和两个演示账号：

@@ -1,7 +1,9 @@
 package com.supermarket.inventory.product.vo;
 
-import java.math.BigDecimal;
+import com.supermarket.inventory.sku.vo.SkuVO;
+
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class ProductVO {
 
@@ -10,8 +12,7 @@ public class ProductVO {
     private String productName;
     private Long categoryId;
     private String categoryName;
-    private BigDecimal purchasePrice;
-    private BigDecimal salePrice;
+    private List<SkuVO> skus;
     private Integer status;
     private LocalDateTime createTime;
 
@@ -55,22 +56,6 @@ public class ProductVO {
         this.categoryName = categoryName;
     }
 
-    public BigDecimal getPurchasePrice() {
-        return purchasePrice;
-    }
-
-    public void setPurchasePrice(BigDecimal purchasePrice) {
-        this.purchasePrice = purchasePrice;
-    }
-
-    public BigDecimal getSalePrice() {
-        return salePrice;
-    }
-
-    public void setSalePrice(BigDecimal salePrice) {
-        this.salePrice = salePrice;
-    }
-
     public Integer getStatus() {
         return status;
     }
@@ -85,5 +70,13 @@ public class ProductVO {
 
     public void setCreateTime(LocalDateTime createTime) {
         this.createTime = createTime;
+    }
+
+    public List<SkuVO> getSkus() {
+        return skus;
+    }
+
+    public void setSkus(List<SkuVO> skus) {
+        this.skus = skus;
     }
 }

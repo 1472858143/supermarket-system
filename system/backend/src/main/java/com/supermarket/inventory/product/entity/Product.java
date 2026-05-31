@@ -1,6 +1,5 @@
 package com.supermarket.inventory.product.entity;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class Product {
@@ -9,8 +8,6 @@ public class Product {
     private String productCode;
     private String productName;
     private Long categoryId;
-    private BigDecimal purchasePrice;
-    private BigDecimal salePrice;
     private Integer status;
     private LocalDateTime createTime;
 
@@ -44,22 +41,6 @@ public class Product {
 
     public void setCategoryId(Long categoryId) {
         this.categoryId = categoryId;
-    }
-
-    public BigDecimal getPurchasePrice() {
-        return purchasePrice;
-    }
-
-    public void setPurchasePrice(BigDecimal purchasePrice) {
-        this.purchasePrice = purchasePrice;
-    }
-
-    public BigDecimal getSalePrice() {
-        return salePrice;
-    }
-
-    public void setSalePrice(BigDecimal salePrice) {
-        this.salePrice = salePrice;
     }
 
     public Integer getStatus() {

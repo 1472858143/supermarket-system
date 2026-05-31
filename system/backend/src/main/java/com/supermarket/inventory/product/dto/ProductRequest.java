@@ -17,12 +17,12 @@ public class ProductRequest {
     @NotNull(message = "商品分类不能为空")
     private Long categoryId;
 
-    @NotNull(message = "进价不能为空")
-    @DecimalMin(value = "0.00", message = "进价不能小于0")
+    @NotNull(message = "默认SKU进价不能为空")
+    @DecimalMin(value = "0.00", message = "默认SKU进价不能小于0")
     private BigDecimal purchasePrice;
 
-    @NotNull(message = "售价不能为空")
-    @DecimalMin(value = "0.00", message = "售价不能小于0")
+    @NotNull(message = "默认SKU售价不能为空")
+    @DecimalMin(value = "0.00", message = "默认SKU售价不能小于0")
     private BigDecimal salePrice;
 
     private Integer status = 1;

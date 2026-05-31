@@ -17,6 +17,7 @@
         </template>
         <template #actions="{ item }">
           <div class="toolbar-left">
+            <PermissionButton :roles="['ADMIN']" @click="openSkuManager(item)">SKU管理</PermissionButton>
             <PermissionButton :roles="['ADMIN']" @click="openEdit(item)">编辑</PermissionButton>
             <PermissionButton :roles="['ADMIN']" button-class="btn-danger" @click="remove(item)">删除</PermissionButton>
           </div>
@@ -34,8 +35,8 @@
           <input v-model.trim="form.productName" class="input" />
         </label>
         <label class="form-item">
-          <span class="form-label">分类</span>
-          <input v-model.trim="form.category" class="input" />
+          <span class="form-label">分类ID</span>
+          <input v-model.number="form.categoryId" class="input" type="number" min="1" step="1" />
         </label>
         <label class="form-item">
           <span class="form-label">状态</span>
@@ -58,6 +59,129 @@
         <button class="btn btn-primary" type="button" :disabled="submitting" @click="submit">{{ submitting ? '提交中...' : '保存' }}</button>
       </template>
     </BaseDialog>
+
+    <BaseDialog v-model="skuDialogVisible" :title="selectedProduct ? `SKU管理 - ${selectedProduct.productName}` : 'SKU管理'">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <button class="btn btn-primary" type="button" @click="openSkuCreate">新增SKU</button>
+        </div>
+      </div>
+      <div class="compact-table">
+        <BaseTable
+          :columns="skuColumns"
+          :items="skuItems"
+          :total="skuItems.length"
+          :page="1"
+          :page-size="skuItems.length || 10"
+          :loading="skuLoading"
+          empty-text="暂无SKU记录"
+        >
+          <template #cell-status="{ item }">
+            <StatusTag type="product" :value="item.status" />
+          </template>
+          <template #cell-isDefault="{ item }">
+            {{ item.isDefault === 1 ? '是' : '否' }}
+          </template>
+          <template #actions="{ item }">
+            <div class="toolbar-left">
+              <button class="btn" type="button" @click="openSkuEdit(item)">编辑</button>
+              <button class="btn" type="button" @click="selectSku(item)">单位换算</button>
+              <button class="btn btn-danger" type="button" :disabled="item.isDefault === 1" @click="removeSku(item)">删除</button>
+            </div>
+          </template>
+        </BaseTable>
+      </div>
+
+      <section v-if="selectedSku" class="sku-unit-panel">
+        <div class="toolbar">
+          <div>
+            <div class="form-label">单位换算：{{ selectedSku.skuName }}</div>
+            <p class="page-desc">示例：1 箱 = 24 {{ selectedSku.baseUnit || '瓶' }}</p>
+          </div>
+          <button class="btn btn-primary" type="button" @click="openUnitCreate">新增单位</button>
+        </div>
+        <div class="compact-table">
+          <BaseTable
+            :columns="unitColumns"
+            :items="selectedSku.units || []"
+            :total="(selectedSku.units || []).length"
+            :page="1"
+            :page-size="(selectedSku.units || []).length || 10"
+            empty-text="暂无单位换算"
+          >
+            <template #cell-conversionRate="{ item }">
+              1 {{ item.unitName }} = {{ item.conversionRate }} {{ selectedSku.baseUnit }}
+            </template>
+            <template #actions="{ item }">
+              <div class="toolbar-left">
+                <button class="btn" type="button" @click="openUnitEdit(item)">编辑</button>
+                <button class="btn btn-danger" type="button" @click="removeUnit(item)">删除</button>
+              </div>
+            </template>
+          </BaseTable>
+        </div>
+      </section>
+      <template #footer>
+        <button class="btn btn-ghost" type="button" @click="skuDialogVisible = false">关闭</button>
+      </template>
+    </BaseDialog>
+
+    <BaseDialog v-model="skuFormVisible" :title="editingSkuId ? '编辑SKU' : '新增SKU'">
+      <form class="form-grid">
+        <label class="form-item">
+          <span class="form-label">SKU名称</span>
+          <input v-model.trim="skuForm.skuName" class="input" />
+        </label>
+        <label class="form-item">
+          <span class="form-label">规格描述</span>
+          <input v-model.trim="skuForm.spec" class="input" />
+        </label>
+        <label class="form-item">
+          <span class="form-label">条码</span>
+          <input v-model.trim="skuForm.barcode" class="input" />
+        </label>
+        <label class="form-item">
+          <span class="form-label">基础单位</span>
+          <input v-model.trim="skuForm.baseUnit" class="input" />
+        </label>
+        <label class="form-item">
+          <span class="form-label">进价</span>
+          <input v-model.number="skuForm.purchasePrice" class="input" type="number" min="0" step="0.01" />
+        </label>
+        <label class="form-item">
+          <span class="form-label">售价</span>
+          <input v-model.number="skuForm.salePrice" class="input" type="number" min="0" step="0.01" />
+        </label>
+        <label class="form-item">
+          <span class="form-label">状态</span>
+          <select v-model.number="skuForm.status" class="select">
+            <option :value="1">上架</option>
+            <option :value="0">下架</option>
+          </select>
+        </label>
+      </form>
+      <template #footer>
+        <button class="btn btn-ghost" type="button" @click="skuFormVisible = false">取消</button>
+        <button class="btn btn-primary" type="button" :disabled="skuSubmitting" @click="submitSku">{{ skuSubmitting ? '提交中...' : '保存' }}</button>
+      </template>
+    </BaseDialog>
+
+    <BaseDialog v-model="unitFormVisible" :title="editingUnitId ? '编辑单位换算' : '新增单位换算'">
+      <form class="form-grid">
+        <label class="form-item">
+          <span class="form-label">单位名称</span>
+          <input v-model.trim="unitForm.unitName" class="input" />
+        </label>
+        <label class="form-item">
+          <span class="form-label">换算比例</span>
+          <input v-model.number="unitForm.conversionRate" class="input" type="number" min="1" step="1" />
+        </label>
+      </form>
+      <template #footer>
+        <button class="btn btn-ghost" type="button" @click="unitFormVisible = false">取消</button>
+        <button class="btn btn-primary" type="button" :disabled="unitSubmitting" @click="submitUnit">{{ unitSubmitting ? '提交中...' : '保存' }}</button>
+      </template>
+    </BaseDialog>
   </div>
 </template>
 
@@ -69,16 +193,30 @@ import PageToolbar from '../../components/PageToolbar.vue'
 import PermissionButton from '../../components/PermissionButton.vue'
 import StatusTag from '../../components/StatusTag.vue'
 import { createProduct, deleteProduct, listProducts, updateProduct } from '../../api/product'
+import { createSku, createUnit, deleteSku, deleteUnit, listSkus, updateSku, updateUnit } from '../../api/sku'
 import { useAuthStore } from '../../stores/auth'
 
 const columns = [
   { key: 'productCode', title: '商品编号' },
   { key: 'productName', title: '商品名称' },
-  { key: 'category', title: '分类' },
+  { key: 'categoryName', title: '分类' },
+  { key: 'status', title: '状态' },
+  { key: 'createTime', title: '创建时间' }
+]
+const skuColumns = [
+  { key: 'skuCode', title: 'SKU编码' },
+  { key: 'skuName', title: 'SKU名称' },
+  { key: 'spec', title: '规格描述' },
+  { key: 'barcode', title: '条码' },
+  { key: 'baseUnit', title: '基础单位' },
   { key: 'purchasePrice', title: '进价' },
   { key: 'salePrice', title: '售价' },
   { key: 'status', title: '状态' },
-  { key: 'createTime', title: '创建时间' }
+  { key: 'isDefault', title: '默认' }
+]
+const unitColumns = [
+  { key: 'unitName', title: '单位名称' },
+  { key: 'conversionRate', title: '换算关系' }
 ]
 const query = reactive({ keyword: '', page: 1, pageSize: 10 })
 const items = ref([])
@@ -89,7 +227,20 @@ const dialogVisible = ref(false)
 const editingId = ref(null)
 const message = ref('')
 const messageType = ref('success')
-const form = reactive({ productCode: '', productName: '', category: '', purchasePrice: 0, salePrice: 0, status: 1 })
+const form = reactive({ productCode: '', productName: '', categoryId: null, purchasePrice: 0, salePrice: 0, status: 1 })
+const skuDialogVisible = ref(false)
+const skuFormVisible = ref(false)
+const unitFormVisible = ref(false)
+const skuLoading = ref(false)
+const skuSubmitting = ref(false)
+const unitSubmitting = ref(false)
+const skuItems = ref([])
+const selectedProduct = ref(null)
+const selectedSku = ref(null)
+const editingSkuId = ref(null)
+const editingUnitId = ref(null)
+const skuForm = reactive({ skuName: '', spec: '', barcode: '', baseUnit: '个', purchasePrice: 0, salePrice: 0, status: 1 })
+const unitForm = reactive({ unitName: '', conversionRate: 1 })
 const authStore = useAuthStore()
 const canManageProducts = computed(() => authStore.hasRole('ADMIN'))
 
@@ -114,12 +265,89 @@ async function loadData() {
 function reload() { query.page = 1; loadData() }
 function resetQuery() { query.keyword = ''; reload() }
 function changePage(page) { query.page = page; loadData() }
-function resetForm() { Object.assign(form, { productCode: '', productName: '', category: '', purchasePrice: 0, salePrice: 0, status: 1 }); editingId.value = null }
+function resetForm() { Object.assign(form, { productCode: '', productName: '', categoryId: null, purchasePrice: 0, salePrice: 0, status: 1 }); editingId.value = null }
 function openCreate() { resetForm(); dialogVisible.value = true }
-function openEdit(item) { editingId.value = item.id; Object.assign(form, item); dialogVisible.value = true }
+function openEdit(item) {
+  const defaultSku = (item.skus || []).find((sku) => Number(sku.isDefault) === 1)
+  editingId.value = item.id
+  Object.assign(form, {
+    productCode: item.productCode,
+    productName: item.productName,
+    categoryId: item.categoryId,
+    purchasePrice: Number(defaultSku?.purchasePrice ?? 0),
+    salePrice: Number(defaultSku?.salePrice ?? 0),
+    status: item.status
+  })
+  dialogVisible.value = true
+}
+function resetSkuForm() { Object.assign(skuForm, { skuName: '', spec: '', barcode: '', baseUnit: '个', purchasePrice: 0, salePrice: 0, status: 1 }); editingSkuId.value = null }
+function resetUnitForm() { Object.assign(unitForm, { unitName: '', conversionRate: 1 }); editingUnitId.value = null }
+
+async function loadSkus() {
+  if (!selectedProduct.value) {
+    return
+  }
+  skuLoading.value = true
+  try {
+    skuItems.value = await listSkus(selectedProduct.value.id)
+  } catch (error) {
+    showMessage(error.message, 'error')
+  } finally {
+    skuLoading.value = false
+  }
+}
+
+async function refreshSkusAndSelection(skuId = selectedSku.value?.id) {
+  await loadSkus()
+  selectedSku.value = skuItems.value.find((sku) => sku.id === skuId) || null
+}
+
+async function openSkuManager(item) {
+  selectedProduct.value = item
+  selectedSku.value = null
+  skuDialogVisible.value = true
+  await loadSkus()
+}
+
+function openSkuCreate() {
+  resetSkuForm()
+  skuFormVisible.value = true
+}
+
+function openSkuEdit(item) {
+  editingSkuId.value = item.id
+  Object.assign(skuForm, {
+    skuName: item.skuName,
+    spec: item.spec,
+    barcode: item.barcode || '',
+    baseUnit: item.baseUnit,
+    purchasePrice: item.purchasePrice,
+    salePrice: item.salePrice,
+    status: item.status
+  })
+  skuFormVisible.value = true
+}
+
+function selectSku(item) {
+  selectedSku.value = item
+}
+
+function openUnitCreate() {
+  resetUnitForm()
+  unitFormVisible.value = true
+}
+
+function openUnitEdit(item) {
+  editingUnitId.value = item.id
+  Object.assign(unitForm, {
+    unitName: item.unitName,
+    conversionRate: item.conversionRate
+  })
+  unitFormVisible.value = true
+}
 
 async function submit() {
-  if (!form.productCode || !form.productName || !form.category) {
+  if (!form.productCode || !form.productName || !form.categoryId) {
     showMessage('请填写商品编号、名称和分类', 'error')
     return
   }
@@ -137,6 +365,90 @@ async function submit() {
     showMessage(error.message, 'error')
   } finally {
     submitting.value = false
+  }
+}
+
+async function submitSku() {
+  const purchasePrice = Number(skuForm.purchasePrice)
+  const salePrice = Number(skuForm.salePrice)
+  if (!skuForm.skuName || !skuForm.spec || !skuForm.baseUnit || Number.isNaN(purchasePrice) || Number.isNaN(salePrice)) {
+    showMessage('请填写SKU名称、规格、基础单位、进价和售价', 'error')
+    return
+  }
+  if (purchasePrice < 0 || salePrice < 0) {
+    showMessage('进价和售价不能小于0', 'error')
+    return
+  }
+  if (salePrice < purchasePrice) {
+    showMessage('售价不能小于进价', 'error')
+    return
+  }
+  skuSubmitting.value = true
+  try {
+    if (editingSkuId.value) {
+      await updateSku(selectedProduct.value.id, editingSkuId.value, skuForm)
+    } else {
+      await createSku(selectedProduct.value.id, skuForm)
+    }
+    const skuId = editingSkuId.value
+    skuFormVisible.value = false
+    showMessage('SKU保存成功')
+    await refreshSkusAndSelection(skuId)
+  } catch (error) {
+    showMessage(error.message, 'error')
+  } finally {
+    skuSubmitting.value = false
+  }
+}
+
+async function removeSku(item) {
+  if (item.isDefault === 1 || !window.confirm(`确认删除SKU ${item.skuName}？`)) {
+    return
+  }
+  try {
+    await deleteSku(selectedProduct.value.id, item.id)
+    showMessage('SKU删除成功')
+    await refreshSkusAndSelection()
+  } catch (error) {
+    showMessage(error.message, 'error')
+  }
+}
+
+async function submitUnit() {
+  const conversionRate = Number(unitForm.conversionRate)
+  if (!unitForm.unitName || Number.isNaN(conversionRate) || conversionRate < 1) {
+    showMessage('请填写单位名称，且换算比例不能小于1', 'error')
+    return
+  }
+  unitSubmitting.value = true
+  try {
+    const skuId = selectedSku.value.id
+    if (editingUnitId.value) {
+      await updateUnit(selectedProduct.value.id, skuId, editingUnitId.value, unitForm)
+    } else {
+      await createUnit(selectedProduct.value.id, skuId, unitForm)
+    }
+    unitFormVisible.value = false
+    showMessage('单位换算保存成功')
+    await refreshSkusAndSelection(skuId)
+  } catch (error) {
+    showMessage(error.message, 'error')
+  } finally {
+    unitSubmitting.value = false
+  }
+}
+
+async function removeUnit(item) {
+  if (!window.confirm(`确认删除单位 ${item.unitName}？`)) {
+    return
+  }
+  try {
+    const skuId = selectedSku.value.id
+    await deleteUnit(selectedProduct.value.id, skuId, item.id)
+    showMessage('单位换算删除成功')
+    await refreshSkusAndSelection(skuId)
+  } catch (error) {
+    showMessage(error.message, 'error')
   }
 }
 
