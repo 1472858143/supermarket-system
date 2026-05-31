@@ -368,6 +368,25 @@ button {
   border-bottom: none;
 }
 
+.compact-table {
+  margin-top: 12px;
+}
+
+.compact-table .data-table {
+  min-width: 920px;
+}
+
+.compact-table .data-table th,
+.compact-table .data-table td {
+  padding: 9px 10px;
+}
+
+.sku-unit-panel {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
 .table-state {
   min-height: 180px;
   display: flex;
