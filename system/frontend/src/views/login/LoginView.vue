@@ -181,7 +181,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted } from 'vue'
+import { reactive, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 import bgImage from '@/assets/back_login.png'
@@ -210,6 +210,7 @@ const errorMessage = ref('')
 const focusedField = ref('')
 const toastMessage = ref('')
 const toastVisible = ref(false)
+const toastTimer = ref(null)
 
 // 验证码生成
 function refreshCaptcha() {
@@ -224,7 +225,8 @@ function refreshCaptcha() {
 function showToast(msg) {
   toastMessage.value = msg
   toastVisible.value = true
-  setTimeout(() => { toastVisible.value = false }, 2000)
+  if (toastTimer.value) clearTimeout(toastTimer.value)
+  toastTimer.value = setTimeout(() => { toastVisible.value = false }, 2000)
 }
 
 // 切换到短信 Tab
@@ -270,6 +272,10 @@ async function handleLogin() {
 
 onMounted(() => {
   refreshCaptcha()
+})
+
+onBeforeUnmount(() => {
+  if (toastTimer.value) clearTimeout(toastTimer.value)
 })
 </script>
 
