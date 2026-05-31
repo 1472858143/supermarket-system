@@ -117,15 +117,20 @@ public class SkuService {
         skuMapper.deleteByProductId(productId);
     }
 
-    public List<UnitConversionVO> listUnits(Long skuId) {
+    public List<UnitConversionVO> listUnits(Long productId, Long skuId) {
+        requireSkuInProduct(productId, skuId);
+        return listUnitsForSku(skuId);
+    }
+
+    private List<UnitConversionVO> listUnitsForSku(Long skuId) {
         return unitConversionMapper.findBySkuId(skuId).stream()
                 .map(this::toVO)
                 .toList();
     }
 
     @Transactional
-    public UnitConversionVO createUnit(Long skuId, UnitConversionRequest request) {
-        skuMapper.findById(skuId).orElseThrow(() -> new BusinessException(404, "SKU不存在"));
+    public UnitConversionVO createUnit(Long productId, Long skuId, UnitConversionRequest request) {
+        requireSkuInProduct(productId, skuId);
         String unitName = trim(request.getUnitName());
         if (unitConversionMapper.existsBySkuIdAndUnitName(skuId, unitName)) {
             throw new BusinessException("单位名称已存在");
@@ -144,7 +149,8 @@ public class SkuService {
     }
 
     @Transactional
-    public UnitConversionVO updateUnit(Long skuId, Long unitId, UnitConversionRequest request) {
+    public UnitConversionVO updateUnit(Long productId, Long skuId, Long unitId, UnitConversionRequest request) {
+        requireSkuInProduct(productId, skuId);
         SkuUnitConversion conversion = requireUnitInSku(skuId, unitId);
         String unitName = trim(request.getUnitName());
         if (unitConversionMapper.existsOtherBySkuIdAndUnitName(skuId, unitId, unitName)) {
@@ -158,7 +164,8 @@ public class SkuService {
     }
 
     @Transactional
-    public void deleteUnit(Long skuId, Long unitId) {
+    public void deleteUnit(Long productId, Long skuId, Long unitId) {
+        requireSkuInProduct(productId, skuId);
         requireUnitInSku(skuId, unitId);
         unitConversionMapper.delete(unitId);
     }
@@ -225,7 +232,7 @@ public class SkuService {
         vo.setStatus(sku.getStatus());
         vo.setIsDefault(sku.getIsDefault());
         vo.setCreateTime(sku.getCreateTime());
-        vo.setUnits(listUnits(sku.getId()));
+        vo.setUnits(listUnitsForSku(sku.getId()));
         return vo;
     }
 

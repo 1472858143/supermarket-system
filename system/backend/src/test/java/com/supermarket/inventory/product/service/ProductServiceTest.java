@@ -1,6 +1,7 @@
 package com.supermarket.inventory.product.service;
 
 import com.supermarket.inventory.category.entity.Category;
+import com.supermarket.inventory.common.exception.BusinessException;
 import com.supermarket.inventory.category.mapper.CategoryMapper;
 import com.supermarket.inventory.product.dto.ProductRequest;
 import com.supermarket.inventory.product.entity.Product;
@@ -23,8 +24,10 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -108,6 +111,20 @@ class ProductServiceTest {
         assertThat(product.getProductName()).isEqualTo("新名称");
         assertThat(product.getCategoryId()).isEqualTo(4L);
         assertThat(product.getStatus()).isEqualTo(0);
+    }
+
+    @Test
+    void delete_rejectsProductWithBusinessReferences() {
+        when(productMapper.findById(7L)).thenReturn(Optional.of(product(7L, "P001", "可乐", 3L, 1)));
+        when(skuUsageMapper.countBusinessReferencesByProductId(7L)).thenReturn(2L);
+
+        assertThatThrownBy(() -> productService.delete(7L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("商品已有业务记录");
+
+        verify(skuService, never()).deleteAllByProductId(7L);
+        verify(stockService, never()).deleteStockByProductId(7L);
+        verify(productMapper, never()).delete(7L);
     }
 
     private ProductRequest productRequest(

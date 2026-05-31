@@ -58,33 +58,39 @@ public class SkuController {
     }
 
     @GetMapping("/{skuId}/units")
-    public ApiResponse<List<UnitConversionVO>> listUnits(@PathVariable Long skuId) {
-        return ApiResponse.success(skuService.listUnits(skuId));
+    public ApiResponse<List<UnitConversionVO>> listUnits(@PathVariable Long productId, @PathVariable Long skuId) {
+        return ApiResponse.success(skuService.listUnits(productId, skuId));
     }
 
     @PostMapping("/{skuId}/units")
     @RequireRoles("ADMIN")
     public ApiResponse<UnitConversionVO> createUnit(
+            @PathVariable Long productId,
             @PathVariable Long skuId,
             @Valid @RequestBody UnitConversionRequest request
     ) {
-        return ApiResponse.success(skuService.createUnit(skuId, request));
+        return ApiResponse.success(skuService.createUnit(productId, skuId, request));
     }
 
     @PutMapping("/{skuId}/units/{unitId}")
     @RequireRoles("ADMIN")
     public ApiResponse<UnitConversionVO> updateUnit(
+            @PathVariable Long productId,
             @PathVariable Long skuId,
             @PathVariable Long unitId,
             @Valid @RequestBody UnitConversionRequest request
     ) {
-        return ApiResponse.success(skuService.updateUnit(skuId, unitId, request));
+        return ApiResponse.success(skuService.updateUnit(productId, skuId, unitId, request));
     }
 
     @DeleteMapping("/{skuId}/units/{unitId}")
     @RequireRoles("ADMIN")
-    public ApiResponse<Void> deleteUnit(@PathVariable Long skuId, @PathVariable Long unitId) {
-        skuService.deleteUnit(skuId, unitId);
+    public ApiResponse<Void> deleteUnit(
+            @PathVariable Long productId,
+            @PathVariable Long skuId,
+            @PathVariable Long unitId
+    ) {
+        skuService.deleteUnit(productId, skuId, unitId);
         return ApiResponse.success();
     }
 }

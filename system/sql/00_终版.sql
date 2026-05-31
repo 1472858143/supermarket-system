@@ -105,6 +105,8 @@ CREATE TABLE stock (
                        UNIQUE KEY uk_stock_product (product_id),
                        CONSTRAINT fk_stock_product
                            FOREIGN KEY (product_id) REFERENCES product(id),
+                       CONSTRAINT fk_stock_sku
+                           FOREIGN KEY (sku_id) REFERENCES sku(id),
                        CHECK (quantity >= 0),
                        CHECK (min_stock >= 0),
                        CHECK (max_stock >= min_stock)
@@ -122,6 +124,8 @@ CREATE TABLE inbound_order (
                                create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                CONSTRAINT fk_inbound_product
                                    FOREIGN KEY (product_id) REFERENCES product(id),
+                               CONSTRAINT fk_inbound_sku
+                                   FOREIGN KEY (sku_id) REFERENCES sku(id),
                                CHECK (quantity > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -137,6 +141,8 @@ CREATE TABLE outbound_order (
                                 create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                 CONSTRAINT fk_outbound_product
                                     FOREIGN KEY (product_id) REFERENCES product(id),
+                                CONSTRAINT fk_outbound_sku
+                                    FOREIGN KEY (sku_id) REFERENCES sku(id),
                                 CHECK (quantity > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -150,6 +156,8 @@ CREATE TABLE stock_check (
                              check_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                              CONSTRAINT fk_stock_check_product
                                  FOREIGN KEY (product_id) REFERENCES product(id),
+                             CONSTRAINT fk_stock_check_sku
+                                 FOREIGN KEY (sku_id) REFERENCES sku(id),
                              CHECK (system_quantity >= 0),
                              CHECK (actual_quantity >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -165,5 +173,7 @@ CREATE TABLE stock_log (
                            create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                            CONSTRAINT fk_stock_log_product
                                FOREIGN KEY (product_id) REFERENCES product(id),
+                           CONSTRAINT fk_stock_log_sku
+                               FOREIGN KEY (sku_id) REFERENCES sku(id),
                            CHECK (after_quantity >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

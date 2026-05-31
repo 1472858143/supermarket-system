@@ -104,6 +104,21 @@ UPDATE stock_check sc
 INNER JOIN sku k ON k.product_id = sc.product_id AND k.is_default = 1
 SET sc.sku_id = k.id;
 
+ALTER TABLE stock
+    ADD CONSTRAINT fk_stock_sku FOREIGN KEY (sku_id) REFERENCES sku(id);
+
+ALTER TABLE stock_log
+    ADD CONSTRAINT fk_stock_log_sku FOREIGN KEY (sku_id) REFERENCES sku(id);
+
+ALTER TABLE inbound_order
+    ADD CONSTRAINT fk_inbound_sku FOREIGN KEY (sku_id) REFERENCES sku(id);
+
+ALTER TABLE outbound_order
+    ADD CONSTRAINT fk_outbound_sku FOREIGN KEY (sku_id) REFERENCES sku(id);
+
+ALTER TABLE stock_check
+    ADD CONSTRAINT fk_stock_check_sku FOREIGN KEY (sku_id) REFERENCES sku(id);
+
 -- ============================================================
 -- 第四部分：阶段 2 移除 product 层价格
 -- ============================================================

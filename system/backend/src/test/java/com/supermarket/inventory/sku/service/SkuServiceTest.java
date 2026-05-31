@@ -91,19 +91,29 @@ class SkuServiceTest {
         when(skuMapper.findById(20L)).thenReturn(Optional.of(sku(20L, 7L, "P001-001", 0)));
         when(unitConversionMapper.existsBySkuIdAndUnitName(20L, "箱")).thenReturn(true);
 
-        assertThatThrownBy(() -> skuService.createUnit(20L, request))
+        assertThatThrownBy(() -> skuService.createUnit(7L, 20L, request))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("单位名称已存在");
+    }
+
+    @Test
+    void listUnits_rejectsSkuOutsideProduct() {
+        when(skuMapper.findById(20L)).thenReturn(Optional.of(sku(20L, 8L, "P002-001", 0)));
+
+        assertThatThrownBy(() -> skuService.listUnits(7L, 20L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("SKU不存在");
     }
 
     @Test
     void updateUnit_allowsSameNameOnCurrentRecord() {
         UnitConversionRequest request = unitRequest("箱", 24);
         SkuUnitConversion existing = unitConversion(30L, 20L, "箱", 12);
+        when(skuMapper.findById(20L)).thenReturn(Optional.of(sku(20L, 7L, "P001-001", 0)));
         when(unitConversionMapper.findById(30L)).thenReturn(Optional.of(existing));
         when(unitConversionMapper.existsOtherBySkuIdAndUnitName(20L, 30L, "箱")).thenReturn(false);
 
-        skuService.updateUnit(20L, 30L, request);
+        skuService.updateUnit(7L, 20L, 30L, request);
 
         assertThat(existing.getConversionRate()).isEqualTo(24);
         verify(unitConversionMapper).update(existing);
