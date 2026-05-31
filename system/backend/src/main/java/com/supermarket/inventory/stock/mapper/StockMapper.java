@@ -7,6 +7,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,25 +20,29 @@ public class StockMapper {
     private final RowMapper<Stock> stockRowMapper = (rs, rowNum) -> {
         Stock stock = new Stock();
         stock.setId(rs.getLong("id"));
-        stock.setProductId(rs.getLong("product_id"));
+        stock.setSkuId(rs.getLong("sku_id"));
         stock.setQuantity(rs.getInt("quantity"));
         stock.setMinStock(rs.getInt("min_stock"));
         stock.setMaxStock(rs.getInt("max_stock"));
-        stock.setUpdateTime(rs.getTimestamp("update_time").toLocalDateTime());
+        stock.setUpdateTime(toLocalDateTime(rs.getTimestamp("update_time")));
         return stock;
     };
 
     private final RowMapper<StockVO> stockVORowMapper = (rs, rowNum) -> {
         StockVO vo = new StockVO();
         vo.setId(rs.getLong("id"));
-        vo.setProductId(rs.getLong("product_id"));
+        vo.setSkuId(rs.getLong("sku_id"));
+        vo.setSkuCode(rs.getString("sku_code"));
+        vo.setSkuName(rs.getString("sku_name"));
+        vo.setSpec(rs.getString("spec"));
+        vo.setBaseUnit(rs.getString("base_unit"));
         vo.setProductCode(rs.getString("product_code"));
         vo.setProductName(rs.getString("product_name"));
         vo.setCategory(rs.getString("category"));
         vo.setQuantity(rs.getInt("quantity"));
         vo.setMinStock(rs.getInt("min_stock"));
         vo.setMaxStock(rs.getInt("max_stock"));
-        vo.setUpdateTime(rs.getTimestamp("update_time").toLocalDateTime());
+        vo.setUpdateTime(toLocalDateTime(rs.getTimestamp("update_time")));
         vo.setWarningStatus(resolveWarningStatus(vo.getQuantity(), vo.getMinStock(), vo.getMaxStock()));
         return vo;
     };
@@ -49,12 +55,20 @@ public class StockMapper {
         String like = "%" + (keyword == null ? "" : keyword.trim()) + "%";
         return jdbcTemplate.queryForObject(
                 """
-                select count(*) from stock s
-                inner join product p on p.id = s.product_id
+                select count(*)
+                from stock s
+                inner join sku k on k.id = s.sku_id
+                inner join product p on p.id = k.product_id
                 left join category c on c.id = p.category_id
-                where p.product_code like ? or p.product_name like ? or c.name like ?
+                where p.product_code like ?
+                   or p.product_name like ?
+                   or k.sku_code like ?
+                   or k.sku_name like ?
+                   or c.name like ?
                 """,
                 Long.class,
+                like,
+                like,
                 like,
                 like,
                 like
@@ -65,15 +79,23 @@ public class StockMapper {
         String like = "%" + (keyword == null ? "" : keyword.trim()) + "%";
         return jdbcTemplate.query(
                 """
-                select s.*, p.product_code, p.product_name, c.name as category
+                select s.*, k.sku_code, k.sku_name, k.spec, k.base_unit,
+                       p.product_code, p.product_name, c.name as category
                 from stock s
-                inner join product p on p.id = s.product_id
+                inner join sku k on k.id = s.sku_id
+                inner join product p on p.id = k.product_id
                 left join category c on c.id = p.category_id
-                where p.product_code like ? or p.product_name like ? or c.name like ?
+                where p.product_code like ?
+                   or p.product_name like ?
+                   or k.sku_code like ?
+                   or k.sku_name like ?
+                   or c.name like ?
                 order by s.id desc
                 limit ? offset ?
                 """,
                 stockVORowMapper,
+                like,
+                like,
                 like,
                 like,
                 like,
@@ -82,72 +104,78 @@ public class StockMapper {
         );
     }
 
-    public Optional<StockVO> findVOByProductId(Long productId) {
+    public Optional<StockVO> findVOBySkuId(Long skuId) {
         try {
             return Optional.ofNullable(jdbcTemplate.queryForObject(
                     """
-                    select s.*, p.product_code, p.product_name, c.name as category
+                    select s.*, k.sku_code, k.sku_name, k.spec, k.base_unit,
+                           p.product_code, p.product_name, c.name as category
                     from stock s
-                    inner join product p on p.id = s.product_id
+                    inner join sku k on k.id = s.sku_id
+                    inner join product p on p.id = k.product_id
                     left join category c on c.id = p.category_id
-                    where s.product_id = ?
+                    where s.sku_id = ?
                     """,
                     stockVORowMapper,
-                    productId
+                    skuId
             ));
         } catch (EmptyResultDataAccessException exception) {
             return Optional.empty();
         }
     }
 
-    public Optional<Stock> findByProductIdForUpdate(Long productId) {
+    public Optional<Stock> findBySkuIdForUpdate(Long skuId) {
         try {
             return Optional.ofNullable(jdbcTemplate.queryForObject(
-                    "select * from stock where product_id = ? for update",
+                    "select * from stock where sku_id = ? for update",
                     stockRowMapper,
-                    productId
+                    skuId
             ));
         } catch (EmptyResultDataAccessException exception) {
             return Optional.empty();
         }
     }
 
-    public void insertInitialStock(Long productId) {
+    public void insertInitialStock(Long skuId) {
         jdbcTemplate.update(
-                "insert into stock(product_id, quantity, min_stock, max_stock) values (?, 0, 0, 100)",
-                productId
+                "insert into stock(sku_id, quantity, min_stock, max_stock) values (?, 0, 0, 100)",
+                skuId
         );
     }
 
-    public void updateLimit(Long productId, int minStock, int maxStock) {
+    public void updateLimit(Long skuId, int minStock, int maxStock) {
         jdbcTemplate.update(
-                "update stock set min_stock = ?, max_stock = ? where product_id = ?",
+                "update stock set min_stock = ?, max_stock = ? where sku_id = ?",
                 minStock,
                 maxStock,
-                productId
+                skuId
         );
     }
 
-    public void updateQuantity(Long productId, int quantity) {
-        jdbcTemplate.update("update stock set quantity = ? where product_id = ?", quantity, productId);
+    public void updateQuantity(Long skuId, int quantity) {
+        jdbcTemplate.update("update stock set quantity = ? where sku_id = ?", quantity, skuId);
     }
 
-    public void deleteByProductId(Long productId) {
-        jdbcTemplate.update("delete from stock where product_id = ?", productId);
+    public void deleteBySkuId(Long skuId) {
+        jdbcTemplate.update("delete from stock where sku_id = ?", skuId);
     }
 
-    public void insertLog(Long productId, String changeType, int changeQuantity, int beforeQuantity, int afterQuantity) {
+    public void insertLog(Long skuId, String changeType, int changeQuantity, int beforeQuantity, int afterQuantity) {
         jdbcTemplate.update(
                 """
-                insert into stock_log(product_id, change_type, change_quantity, before_quantity, after_quantity)
+                insert into stock_log(sku_id, change_type, change_quantity, before_quantity, after_quantity)
                 values (?, ?, ?, ?, ?)
                 """,
-                productId,
+                skuId,
                 changeType,
                 changeQuantity,
                 beforeQuantity,
                 afterQuantity
         );
+    }
+
+    private LocalDateTime toLocalDateTime(Timestamp timestamp) {
+        return timestamp == null ? null : timestamp.toLocalDateTime();
     }
 
     private String resolveWarningStatus(int quantity, int minStock, int maxStock) {

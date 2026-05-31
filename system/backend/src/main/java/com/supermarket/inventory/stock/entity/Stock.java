@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 public class Stock {
 
     private Long id;
-    private Long productId;
+    private Long skuId;
     private Integer quantity;
     private Integer minStock;
     private Integer maxStock;
@@ -19,12 +19,12 @@ public class Stock {
         this.id = id;
     }
 
-    public Long getProductId() {
-        return productId;
+    public Long getSkuId() {
+        return skuId;
     }
 
-    public void setProductId(Long productId) {
-        this.productId = productId;
+    public void setSkuId(Long skuId) {
+        this.skuId = skuId;
     }
 
     public Integer getQuantity() {
