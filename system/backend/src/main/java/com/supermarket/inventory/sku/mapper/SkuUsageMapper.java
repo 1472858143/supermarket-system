@@ -43,12 +43,11 @@ public class SkuUsageMapper {
                     (select count(*) from stock_check c where c.product_id = ? or exists (
                         select 1 from sku s where s.product_id = ? and s.id = c.sku_id
                     )) +
-                    (select count(*) from stock_log l where l.product_id = ? or exists (
+                    (select count(*) from stock_log l where exists (
                         select 1 from sku s where s.product_id = ? and s.id = l.sku_id
                     ))
                 """,
                 Long.class,
-                productId,
                 productId,
                 productId,
                 productId,
