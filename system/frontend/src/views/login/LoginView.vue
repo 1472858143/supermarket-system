@@ -306,8 +306,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
-  transform: scale(0.9);
-  transform-origin: center center;
+  zoom: 0.9;
 }
 
 /* ───────── stage ───────── */
