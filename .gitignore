@@ -11,3 +11,11 @@
 
 # Node
 **/node_modules/
+
+# Claude Code session artifacts
+docs/superpowers/
+
+# Runtime artifacts
+*.log
+*.pid
+system/pages/
