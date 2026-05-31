@@ -53,16 +53,16 @@ class StockServiceTest {
     }
 
     @Test
-    void increase_updatesSkuQuantityAndWritesInboundLog() {
+    void increase_updatesSkuQuantityAndWritesProvidedInboundLogType() {
         when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(Optional.of(stock(20L, 5)));
         when(stockMapper.findVOBySkuId(20L)).thenReturn(Optional.of(stockVO(20L, 8)));
 
-        StockVO vo = stockService.increase(20L, 3);
+        StockVO vo = stockService.increase(20L, 3, "PURCHASE_INBOUND");
 
         assertThat(vo.getSkuId()).isEqualTo(20L);
         assertThat(vo.getQuantity()).isEqualTo(8);
         verify(stockMapper).updateQuantity(20L, 8);
-        verify(stockMapper).insertLog(20L, "INBOUND", 3, 5, 8);
+        verify(stockMapper).insertLog(20L, "PURCHASE_INBOUND", 3, 5, 8);
     }
 
     @Test
