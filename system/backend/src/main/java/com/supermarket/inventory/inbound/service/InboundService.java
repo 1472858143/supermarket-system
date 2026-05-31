@@ -1,11 +1,14 @@
 package com.supermarket.inventory.inbound.service;
 
 import com.supermarket.inventory.auth.security.CurrentUserContext;
+import com.supermarket.inventory.common.exception.BusinessException;
 import com.supermarket.inventory.common.response.PageResult;
 import com.supermarket.inventory.common.util.PageUtils;
 import com.supermarket.inventory.inbound.dto.InboundRequest;
 import com.supermarket.inventory.inbound.mapper.InboundMapper;
 import com.supermarket.inventory.inbound.vo.InboundVO;
+import com.supermarket.inventory.sku.entity.Sku;
+import com.supermarket.inventory.sku.mapper.SkuMapper;
 import com.supermarket.inventory.stock.service.StockService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,10 +18,12 @@ public class InboundService {
 
     private final InboundMapper inboundMapper;
     private final StockService stockService;
+    private final SkuMapper skuMapper;
 
-    public InboundService(InboundMapper inboundMapper, StockService stockService) {
+    public InboundService(InboundMapper inboundMapper, StockService stockService, SkuMapper skuMapper) {
         this.inboundMapper = inboundMapper;
         this.stockService = stockService;
+        this.skuMapper = skuMapper;
     }
 
     public PageResult<InboundVO> list(String keyword, Integer page, Integer pageSize) {
@@ -35,9 +40,11 @@ public class InboundService {
     @Transactional
     public void create(InboundRequest request) {
         String operator = resolveOperator(request.getOperator());
+        Sku defaultSku = skuMapper.findDefaultByProductId(request.getProductId())
+                .orElseThrow(() -> new BusinessException("该商品无默认SKU"));
         inboundMapper.insert(request.getProductId(), request.getQuantity(), operator);
         // 入库服务只记录库存增加原因，实际库存变更统一交给 StockService。
-        stockService.increase(request.getProductId(), request.getQuantity());
+        stockService.increase(defaultSku.getId(), request.getQuantity());
     }
 
     private String resolveOperator(String operator) {
