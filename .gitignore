@@ -1,1 +1,13 @@
 .worktrees/
+
+# IDE
+.idea/
+
+# Java build
+**/target/
+
+# Frontend build
+**/dist/
+
+# Node
+**/node_modules/
