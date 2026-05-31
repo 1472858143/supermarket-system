@@ -44,7 +44,7 @@ class InboundServiceTest {
         inboundService.create(request(20L, 2, "箱", 24, "operator"));
 
         verify(inboundMapper).insert(20L, 2, "箱", 24, 48, "operator");
-        verify(stockService).increase(20L, 48);
+        verify(stockService).increase(20L, 48, "INBOUND");
     }
 
     @Test
@@ -55,7 +55,7 @@ class InboundServiceTest {
         inboundService.create(request(20L, 10, null, null, "operator"));
 
         verify(inboundMapper).insert(20L, 10, "瓶", 1, 10, "operator");
-        verify(stockService).increase(20L, 10);
+        verify(stockService).increase(20L, 10, "INBOUND");
     }
 
     @Test
@@ -66,7 +66,7 @@ class InboundServiceTest {
         inboundService.create(request(20L, 2, "箱", 999, "operator"));
 
         verify(inboundMapper).insert(20L, 2, "箱", 24, 48, "operator");
-        verify(stockService).increase(20L, 48);
+        verify(stockService).increase(20L, 48, "INBOUND");
     }
 
     @Test
@@ -79,7 +79,7 @@ class InboundServiceTest {
                 .hasMessage("基础单位数量超出范围");
 
         verify(inboundMapper, never()).insert(20L, Integer.MAX_VALUE, "箱", 2, -2, "operator");
-        verify(stockService, never()).increase(20L, -2);
+        verify(stockService, never()).increase(20L, -2, "INBOUND");
     }
 
     private InboundRequest request(Long skuId, Integer quantity, String unit, Integer conversionRate, String operator) {

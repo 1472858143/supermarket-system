@@ -56,11 +56,11 @@ public class StockService {
     }
 
     @Transactional
-    public StockVO increase(Long skuId, int quantity) {
+    public StockVO increase(Long skuId, int quantity, String changeType) {
         Stock stock = lockStock(skuId);
         int afterQuantity = stockDomainService.increase(stock.getQuantity(), quantity);
         stockMapper.updateQuantity(skuId, afterQuantity);
-        stockMapper.insertLog(skuId, "INBOUND", quantity, stock.getQuantity(), afterQuantity);
+        stockMapper.insertLog(skuId, changeType, quantity, stock.getQuantity(), afterQuantity);
         return getBySkuId(skuId);
     }
 

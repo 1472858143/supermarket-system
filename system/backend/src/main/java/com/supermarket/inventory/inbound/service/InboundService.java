@@ -49,7 +49,7 @@ public class InboundService {
                 baseQuantity,
                 operator
         );
-        stockService.increase(resolvedUnit.sku().getId(), baseQuantity);
+        stockService.increase(resolvedUnit.sku().getId(), baseQuantity, "INBOUND");
     }
 
     private int calculateBaseQuantity(int quantity, int conversionRate) {
