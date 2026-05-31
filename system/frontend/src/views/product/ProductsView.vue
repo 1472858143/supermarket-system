@@ -34,24 +34,13 @@
           <span class="form-label">商品名称</span>
           <input v-model.trim="form.productName" class="input" />
         </label>
-        <label class="form-item">
-          <span class="form-label">分类ID</span>
-          <input v-model.number="form.categoryId" class="input" type="number" min="1" step="1" />
-        </label>
+        <CategoryCascader v-model="form.categoryId" :tree="categoryTree" />
         <label class="form-item">
           <span class="form-label">状态</span>
           <select v-model.number="form.status" class="select">
             <option :value="1">上架</option>
             <option :value="0">下架</option>
           </select>
-        </label>
-        <label class="form-item">
-          <span class="form-label">进价</span>
-          <input v-model.number="form.purchasePrice" class="input" type="number" min="0" step="0.01" />
-        </label>
-        <label class="form-item">
-          <span class="form-label">售价</span>
-          <input v-model.number="form.salePrice" class="input" type="number" min="0" step="0.01" />
         </label>
       </form>
       <template #footer>
@@ -192,8 +181,10 @@ import BaseTable from '../../components/BaseTable.vue'
 import PageToolbar from '../../components/PageToolbar.vue'
 import PermissionButton from '../../components/PermissionButton.vue'
 import StatusTag from '../../components/StatusTag.vue'
+import CategoryCascader from '../../components/CategoryCascader.vue'
 import { createProduct, deleteProduct, listProducts, updateProduct } from '../../api/product'
 import { createSku, createUnit, deleteSku, deleteUnit, listSkus, updateSku, updateUnit } from '../../api/sku'
+import { getCategoryTree } from '../../api/category'
 import { useAuthStore } from '../../stores/auth'
 
 const columns = [
@@ -227,7 +218,7 @@ const dialogVisible = ref(false)
 const editingId = ref(null)
 const message = ref('')
 const messageType = ref('success')
-const form = reactive({ productCode: '', productName: '', categoryId: null, purchasePrice: 0, salePrice: 0, status: 1 })
+const form = reactive({ productCode: '', productName: '', categoryId: null, status: 1 })
 const skuDialogVisible = ref(false)
 const skuFormVisible = ref(false)
 const unitFormVisible = ref(false)
@@ -241,6 +232,7 @@ const editingSkuId = ref(null)
 const editingUnitId = ref(null)
 const skuForm = reactive({ skuName: '', spec: '', barcode: '', baseUnit: '个', purchasePrice: 0, salePrice: 0, status: 1 })
 const unitForm = reactive({ unitName: '', conversionRate: 1 })
+const categoryTree = ref([])
 const authStore = useAuthStore()
 const canManageProducts = computed(() => authStore.hasRole('ADMIN'))
 
@@ -265,17 +257,14 @@ async function loadData() {
 function reload() { query.page = 1; loadData() }
 function resetQuery() { query.keyword = ''; reload() }
 function changePage(page) { query.page = page; loadData() }
-function resetForm() { Object.assign(form, { productCode: '', productName: '', categoryId: null, purchasePrice: 0, salePrice: 0, status: 1 }); editingId.value = null }
+function resetForm() { Object.assign(form, { productCode: '', productName: '', categoryId: null, status: 1 }); editingId.value = null }
 function openCreate() { resetForm(); dialogVisible.value = true }
 function openEdit(item) {
-  const defaultSku = (item.skus || []).find((sku) => Number(sku.isDefault) === 1)
   editingId.value = item.id
   Object.assign(form, {
     productCode: item.productCode,
     productName: item.productName,
     categoryId: item.categoryId,
-    purchasePrice: Number(defaultSku?.purchasePrice ?? 0),
-    salePrice: Number(defaultSku?.salePrice ?? 0),
     status: item.status
   })
   dialogVisible.value = true
@@ -353,13 +342,14 @@ async function submit() {
   }
   submitting.value = true
   try {
+    const isEditing = Boolean(editingId.value)
     if (editingId.value) {
       await updateProduct(editingId.value, form)
     } else {
       await createProduct(form)
     }
     dialogVisible.value = false
-    showMessage('保存成功')
+    showMessage(isEditing ? '保存成功' : '商品保存成功，请在SKU管理中新增规格')
     loadData()
   } catch (error) {
     showMessage(error.message, 'error')
@@ -465,5 +455,16 @@ async function remove(item) {
   }
 }
 
-onMounted(loadData)
+async function loadCategories() {
+  try {
+    categoryTree.value = await getCategoryTree()
+  } catch (error) {
+    showMessage('加载分类失败', 'error')
+  }
+}
+
+onMounted(() => {
+  loadData()
+  loadCategories()
+})
 </script>

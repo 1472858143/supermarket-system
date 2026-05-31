@@ -11,12 +11,14 @@ import InboundsView from '../views/inbound/InboundsView.vue'
 import OutboundsView from '../views/outbound/OutboundsView.vue'
 import StockchecksView from '../views/stockcheck/StockchecksView.vue'
 import ReportsView from '../views/report/ReportsView.vue'
+import CategoryView from '../views/category/CategoryView.vue'
 import SystemView from '../views/system/SystemView.vue'
 
 export const menuRoutes = [
   { path: '/dashboard', name: 'Dashboard', component: DashboardView, meta: { title: '首页概览', roles: ['ADMIN', 'USER'], icon: '□' } },
   { path: '/users', name: 'UserManage', component: UsersView, meta: { title: '用户管理', roles: ['ADMIN'], icon: 'U' } },
   { path: '/products', name: 'ProductManage', component: ProductsView, meta: { title: '商品管理', roles: ['ADMIN', 'USER'], icon: 'P' } },
+  { path: '/categories', name: 'CategoryManage', component: CategoryView, meta: { title: '分类管理', roles: ['ADMIN', 'USER'], icon: 'G' } },
   { path: '/stocks', name: 'StockManage', component: StocksView, meta: { title: '库存管理', roles: ['ADMIN', 'USER'], icon: 'S' } },
   { path: '/inbounds', name: 'InboundManage', component: InboundsView, meta: { title: '入库管理', roles: ['ADMIN', 'USER'], icon: '+' } },
   { path: '/outbounds', name: 'OutboundManage', component: OutboundsView, meta: { title: '出库管理', roles: ['ADMIN', 'USER'], icon: '-' } },
