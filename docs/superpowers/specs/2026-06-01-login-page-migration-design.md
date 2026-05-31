@@ -16,6 +16,7 @@
 | 验证码 | 前端生成 4 位随机字符 | 后端验证码接口暂未开发，临时方案 |
 | 短信登录 | 保留 Tab UI，点击弹"暂未开放" | 1:1 迁移，功能后置 |
 | 其他登录方式 | 保留图标按钮，点击弹"暂未开放" | 同上 |
+| 整体缩放 | `transform: scale(0.9)` | 登录页内容整体缩小至 90%，视觉更紧凑 |
 | 开发便利 | 预填 admin/admin123 | 方便开发调试 |
 
 ---
@@ -107,7 +108,8 @@ const toastVisible = ref(false)       // Toast 显隐
 1. CSS 变量 — 深蓝主题色系，定义在 `.login-page`（组件根元素 class）上，而非 `:root`
 2. 布局样式 — stage、topbar、grid layout、card
 3. 组件样式 — field、tabs、submit、captcha、checkbox
-4. 动画 — `@keyframes rise` 入场动画
+4. 整体缩放 — 在 `.login-page` 根元素上设置 `transform: scale(0.9); transform-origin: center center;`，页面整体缩放至 90%
+5. 动画 — `@keyframes rise` 入场动画
 5. 响应式 — 三个断点：1366px / 1024px / 640px
 
 ### 背景图引用
