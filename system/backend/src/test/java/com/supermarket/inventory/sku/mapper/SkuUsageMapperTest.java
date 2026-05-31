@@ -26,6 +26,24 @@ class SkuUsageMapperTest {
     }
 
     @Test
+    void countBusinessReferences_includesPurchaseInboundItems() {
+        Long skuId = 20L;
+
+        skuUsageMapper.countBusinessReferences(skuId);
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Object[]> argsCaptor = ArgumentCaptor.forClass(Object[].class);
+        verify(jdbcTemplate).queryForObject(sqlCaptor.capture(), eq(Long.class), argsCaptor.capture());
+
+        String sql = sqlCaptor.getValue();
+        Object[] args = argsCaptor.getValue();
+
+        assertThat(sql).contains("select count(*) from purchase_inbound_item where sku_id = ?");
+        assertThat(args).containsOnly(skuId);
+        assertThat(args).hasSize(countPlaceholders(sql));
+    }
+
+    @Test
     void countBusinessReferencesByProductId_queriesStockLogThroughSkuOnly() {
         Long productId = 42L;
 
@@ -53,6 +71,8 @@ class SkuUsageMapperTest {
         assertThat(sql).doesNotContain("l.product_id = ?");
         assertThat(sql).contains("from stock_log l where exists");
         assertThat(sql).contains("s.id = l.sku_id");
+        assertThat(sql).contains("from purchase_inbound_item pi where exists");
+        assertThat(sql).contains("s.id = pi.sku_id");
         assertThat(args).containsOnly(productId);
         assertThat(args).hasSize(countPlaceholders(sql));
     }

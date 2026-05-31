@@ -2,6 +2,8 @@ package com.supermarket.inventory.purchaseinbound.service;
 
 import com.supermarket.inventory.auth.security.CurrentUserContext;
 import com.supermarket.inventory.common.exception.BusinessException;
+import com.supermarket.inventory.common.response.PageResult;
+import com.supermarket.inventory.common.util.PageUtils;
 import com.supermarket.inventory.purchaseinbound.dto.PurchaseInboundItemRequest;
 import com.supermarket.inventory.purchaseinbound.dto.PurchaseInboundRequest;
 import com.supermarket.inventory.purchaseinbound.entity.PurchaseInbound;
@@ -41,6 +43,24 @@ public class PurchaseInboundService {
         this.purchaseInboundMapper = purchaseInboundMapper;
         this.skuUnitResolver = skuUnitResolver;
         this.stockService = stockService;
+    }
+
+    public PageResult<PurchaseInboundVO> list(String keyword, Integer page, Integer pageSize) {
+        int normalizedPage = PageUtils.normalizePage(page);
+        int normalizedPageSize = PageUtils.normalizePageSize(pageSize);
+        return new PageResult<>(
+                purchaseInboundMapper.findPage(keyword, PageUtils.offset(normalizedPage, normalizedPageSize), normalizedPageSize),
+                purchaseInboundMapper.count(keyword),
+                normalizedPage,
+                normalizedPageSize
+        );
+    }
+
+    public PurchaseInboundVO getById(Long id) {
+        PurchaseInboundVO vo = purchaseInboundMapper.findById(id)
+                .orElseThrow(() -> new BusinessException(404, "采购入库单不存在"));
+        vo.setItems(purchaseInboundMapper.findItemsByInboundId(id));
+        return vo;
     }
 
     @Transactional

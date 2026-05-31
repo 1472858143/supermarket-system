@@ -19,9 +19,11 @@ public class SkuUsageMapper {
                     (select count(*) from inbound_order where sku_id = ?) +
                     (select count(*) from outbound_order where sku_id = ?) +
                     (select count(*) from stock_check where sku_id = ?) +
-                    (select count(*) from stock_log where sku_id = ?)
+                    (select count(*) from stock_log where sku_id = ?) +
+                    (select count(*) from purchase_inbound_item where sku_id = ?)
                 """,
                 Long.class,
+                skuId,
                 skuId,
                 skuId,
                 skuId,
@@ -45,9 +47,13 @@ public class SkuUsageMapper {
                     )) +
                     (select count(*) from stock_log l where exists (
                         select 1 from sku s where s.product_id = ? and s.id = l.sku_id
+                    )) +
+                    (select count(*) from purchase_inbound_item pi where exists (
+                        select 1 from sku s where s.product_id = ? and s.id = pi.sku_id
                     ))
                 """,
                 Long.class,
+                productId,
                 productId,
                 productId,
                 productId,

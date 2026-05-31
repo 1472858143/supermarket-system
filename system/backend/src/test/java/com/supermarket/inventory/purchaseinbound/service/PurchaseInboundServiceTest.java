@@ -3,11 +3,13 @@ package com.supermarket.inventory.purchaseinbound.service;
 import com.supermarket.inventory.auth.security.CurrentUser;
 import com.supermarket.inventory.auth.security.CurrentUserContext;
 import com.supermarket.inventory.common.exception.BusinessException;
+import com.supermarket.inventory.common.response.PageResult;
 import com.supermarket.inventory.purchaseinbound.dto.PurchaseInboundItemRequest;
 import com.supermarket.inventory.purchaseinbound.dto.PurchaseInboundRequest;
 import com.supermarket.inventory.purchaseinbound.entity.PurchaseInbound;
 import com.supermarket.inventory.purchaseinbound.entity.PurchaseInboundItem;
 import com.supermarket.inventory.purchaseinbound.mapper.PurchaseInboundMapper;
+import com.supermarket.inventory.purchaseinbound.vo.PurchaseInboundItemVO;
 import com.supermarket.inventory.purchaseinbound.vo.PurchaseInboundVO;
 import com.supermarket.inventory.sku.entity.Sku;
 import com.supermarket.inventory.sku.service.SkuUnitResolver;
@@ -60,6 +62,43 @@ class PurchaseInboundServiceTest {
     @AfterEach
     void tearDown() {
         CurrentUserContext.clear();
+    }
+
+    @Test
+    void list_normalizesPaginationAndReturnsPageResult() {
+        PurchaseInboundVO order = vo(100L);
+        when(purchaseInboundMapper.findPage("cola", 0, 100)).thenReturn(List.of(order));
+        when(purchaseInboundMapper.count("cola")).thenReturn(12L);
+
+        PageResult<PurchaseInboundVO> result = purchaseInboundService.list("cola", 0, 120);
+
+        assertThat(result.getItems()).containsExactly(order);
+        assertThat(result.getTotal()).isEqualTo(12L);
+        assertThat(result.getPage()).isEqualTo(1);
+        assertThat(result.getPageSize()).isEqualTo(100);
+    }
+
+    @Test
+    void getById_returnsInboundWithItems() {
+        PurchaseInboundVO order = vo(100L);
+        PurchaseInboundItemVO item = new PurchaseInboundItemVO();
+        item.setId(1L);
+        when(purchaseInboundMapper.findById(100L)).thenReturn(Optional.of(order));
+        when(purchaseInboundMapper.findItemsByInboundId(100L)).thenReturn(List.of(item));
+
+        PurchaseInboundVO result = purchaseInboundService.getById(100L);
+
+        assertThat(result).isSameAs(order);
+        assertThat(result.getItems()).containsExactly(item);
+    }
+
+    @Test
+    void getById_throwsBusinessExceptionWhenInboundMissing() {
+        when(purchaseInboundMapper.findById(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> purchaseInboundService.getById(404L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("采购入库单不存在");
     }
 
     @Test

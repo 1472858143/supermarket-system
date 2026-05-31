@@ -33,6 +33,24 @@ public class PurchaseInboundMapper {
         return vo;
     };
 
+    private final RowMapper<PurchaseInboundItemVO> itemRowMapper = (rs, rowNum) -> {
+        PurchaseInboundItemVO vo = new PurchaseInboundItemVO();
+        vo.setId(rs.getLong("id"));
+        vo.setSkuId(rs.getLong("sku_id"));
+        vo.setSkuCode(rs.getString("sku_code"));
+        vo.setSkuName(rs.getString("sku_name"));
+        vo.setProductCode(rs.getString("product_code"));
+        vo.setProductName(rs.getString("product_name"));
+        vo.setQuantity(rs.getInt("quantity"));
+        vo.setUnit(rs.getString("unit"));
+        vo.setConversionRate(rs.getInt("conversion_rate"));
+        vo.setBaseQuantity(rs.getInt("base_quantity"));
+        vo.setPurchasePrice(rs.getBigDecimal("purchase_price"));
+        vo.setCostPrice(rs.getBigDecimal("cost_price"));
+        vo.setAmount(rs.getBigDecimal("amount"));
+        return vo;
+    };
+
     public PurchaseInboundMapper(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
@@ -102,6 +120,76 @@ public class PurchaseInboundMapper {
     }
 
     public List<PurchaseInboundItemVO> findItemsByInboundId(Long inboundId) {
-        throw new UnsupportedOperationException("Task 3 will implement purchase inbound item query");
+        return jdbcTemplate.query(
+                """
+                select item.*, k.sku_code, k.sku_name, p.product_code, p.product_name
+                from purchase_inbound_item item
+                inner join sku k on k.id = item.sku_id
+                inner join product p on p.id = k.product_id
+                where item.purchase_inbound_id = ?
+                order by item.id asc
+                """,
+                itemRowMapper,
+                inboundId
+        );
+    }
+
+    public long count(String keyword) {
+        String like = "%" + (keyword == null ? "" : keyword.trim()) + "%";
+        Long count = jdbcTemplate.queryForObject(
+                """
+                select count(*)
+                from purchase_inbound pi
+                where pi.order_no like ? or pi.operator like ? or pi.remark like ?
+                   or exists (
+                       select 1
+                       from purchase_inbound_item item
+                       inner join sku k on k.id = item.sku_id
+                       inner join product p on p.id = k.product_id
+                       where item.purchase_inbound_id = pi.id
+                         and (k.sku_code like ? or k.sku_name like ? or p.product_code like ? or p.product_name like ?)
+                   )
+                """,
+                Long.class,
+                like,
+                like,
+                like,
+                like,
+                like,
+                like,
+                like
+        );
+        return count == null ? 0L : count;
+    }
+
+    public List<PurchaseInboundVO> findPage(String keyword, int offset, int pageSize) {
+        String like = "%" + (keyword == null ? "" : keyword.trim()) + "%";
+        return jdbcTemplate.query(
+                """
+                select pi.*
+                from purchase_inbound pi
+                where pi.order_no like ? or pi.operator like ? or pi.remark like ?
+                   or exists (
+                       select 1
+                       from purchase_inbound_item item
+                       inner join sku k on k.id = item.sku_id
+                       inner join product p on p.id = k.product_id
+                       where item.purchase_inbound_id = pi.id
+                         and (k.sku_code like ? or k.sku_name like ? or p.product_code like ? or p.product_name like ?)
+                   )
+                order by pi.id desc
+                limit ? offset ?
+                """,
+                inboundRowMapper,
+                like,
+                like,
+                like,
+                like,
+                like,
+                like,
+                like,
+                pageSize,
+                offset
+        );
     }
 }
