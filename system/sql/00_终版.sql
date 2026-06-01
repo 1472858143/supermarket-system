@@ -192,7 +192,6 @@ CREATE TABLE stock_batch (
     CONSTRAINT fk_stock_batch_pi_item_sku FOREIGN KEY (purchase_inbound_item_id, sku_id) REFERENCES purchase_inbound_item(id, sku_id),
     CHECK (initial_quantity > 0),
     CHECK (quantity >= 0),
-    CHECK (quantity <= initial_quantity),
     CONSTRAINT ck_stock_batch_status CHECK (status IN ('AVAILABLE', 'DEPLETED', 'EXPIRED', 'LOCKED', 'DAMAGED', 'CLOSED')),
     CONSTRAINT ck_stock_batch_closed_quantity CHECK (status <> 'CLOSED' OR quantity = 0),
     CHECK (purchase_price >= 0),
@@ -223,17 +222,54 @@ CREATE TABLE stock_batch_log (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='库存批次流水表';
 
 CREATE TABLE stock_check (
-                             id BIGINT PRIMARY KEY AUTO_INCREMENT,
-                             sku_id BIGINT NOT NULL,
-                             system_quantity INT NOT NULL,
-                             actual_quantity INT NOT NULL,
-                             difference INT NOT NULL,
-                             check_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                             CONSTRAINT fk_stock_check_sku
-                                 FOREIGN KEY (sku_id) REFERENCES sku(id),
-                             CHECK (system_quantity >= 0),
-                             CHECK (actual_quantity >= 0)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    check_no VARCHAR(32) NOT NULL COMMENT '盘点单号',
+    name VARCHAR(100) NOT NULL COMMENT '盘点名称',
+    scope_type VARCHAR(30) NOT NULL COMMENT 'ALL / CATEGORY_LEVEL1 / CATEGORY_LEVEL2 / SKU',
+    category_id BIGINT DEFAULT NULL COMMENT '分类范围',
+    sku_select_type VARCHAR(20) NOT NULL DEFAULT 'ALL' COMMENT 'ALL / MULTI / SINGLE',
+    status VARCHAR(20) NOT NULL DEFAULT 'DRAFT' COMMENT 'DRAFT / COMPLETED / CANCELLED',
+    total_sku_count INT NOT NULL DEFAULT 0,
+    total_batch_count INT NOT NULL DEFAULT 0,
+    total_difference INT NOT NULL DEFAULT 0,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    complete_time DATETIME DEFAULT NULL,
+    UNIQUE KEY uk_stock_check_no (check_no),
+    KEY idx_stock_check_status_time (status, create_time),
+    KEY idx_stock_check_category (category_id),
+    CONSTRAINT fk_stock_check_category FOREIGN KEY (category_id) REFERENCES category(id),
+    CONSTRAINT ck_stock_check_scope CHECK (scope_type IN ('ALL', 'CATEGORY_LEVEL1', 'CATEGORY_LEVEL2', 'SKU')),
+    CONSTRAINT ck_stock_check_sku_select CHECK (sku_select_type IN ('ALL', 'MULTI', 'SINGLE')),
+    CONSTRAINT ck_stock_check_status CHECK (status IN ('DRAFT', 'COMPLETED', 'CANCELLED')),
+    CHECK (total_sku_count >= 0),
+    CHECK (total_batch_count >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='盘点单';
+
+CREATE TABLE stock_check_item (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    stock_check_id BIGINT NOT NULL,
+    sku_id BIGINT NOT NULL,
+    stock_batch_id BIGINT NOT NULL,
+    batch_no VARCHAR(40) NOT NULL,
+    system_quantity INT NOT NULL COMMENT '创建盘点单时的批次账面数量',
+    actual_quantity INT DEFAULT NULL COMMENT '实盘数量',
+    difference INT DEFAULT NULL COMMENT '实盘数量 - 创建时账面数量',
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING / COUNTED',
+    expire_date DATE DEFAULT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_stock_check_item_batch (stock_check_id, stock_batch_id),
+    KEY idx_stock_check_item_check (stock_check_id, id),
+    KEY idx_stock_check_item_sku (sku_id, id),
+    KEY idx_stock_check_item_batch_id (stock_batch_id),
+    CONSTRAINT fk_stock_check_item_check FOREIGN KEY (stock_check_id) REFERENCES stock_check(id),
+    CONSTRAINT fk_stock_check_item_sku FOREIGN KEY (sku_id) REFERENCES sku(id),
+    CONSTRAINT fk_stock_check_item_batch FOREIGN KEY (stock_batch_id) REFERENCES stock_batch(id),
+    CONSTRAINT fk_stock_check_item_batch_sku FOREIGN KEY (stock_batch_id, sku_id) REFERENCES stock_batch(id, sku_id),
+    CONSTRAINT ck_stock_check_item_status CHECK (status IN ('PENDING', 'COUNTED')),
+    CHECK (system_quantity >= 0),
+    CHECK (actual_quantity IS NULL OR actual_quantity >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='盘点批次明细';
 
 CREATE TABLE stock_log (
                            id BIGINT PRIMARY KEY AUTO_INCREMENT,

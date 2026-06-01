@@ -1,17 +1,14 @@
-package com.supermarket.inventory.stockcheck.vo;
+package com.supermarket.inventory.stockcheck.entity;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
-public class StockCheckVO {
+public class StockCheck {
 
     private Long id;
     private String checkNo;
     private String name;
     private String scopeType;
     private Long categoryId;
-    private String categoryName;
     private String skuSelectType;
     private String status;
     private Integer totalSkuCount;
@@ -19,7 +16,6 @@ public class StockCheckVO {
     private Integer totalDifference;
     private LocalDateTime createTime;
     private LocalDateTime completeTime;
-    private List<StockCheckItemVO> items = new ArrayList<>();
 
     public Long getId() {
         return id;
@@ -59,14 +55,6 @@ public class StockCheckVO {
 
     public void setCategoryId(Long categoryId) {
         this.categoryId = categoryId;
-    }
-
-    public String getCategoryName() {
-        return categoryName;
-    }
-
-    public void setCategoryName(String categoryName) {
-        this.categoryName = categoryName;
     }
 
     public String getSkuSelectType() {
@@ -123,13 +111,5 @@ public class StockCheckVO {
 
     public void setCompleteTime(LocalDateTime completeTime) {
         this.completeTime = completeTime;
-    }
-
-    public List<StockCheckItemVO> getItems() {
-        return items;
-    }
-
-    public void setItems(List<StockCheckItemVO> items) {
-        this.items = items == null ? new ArrayList<>() : items;
     }
 }

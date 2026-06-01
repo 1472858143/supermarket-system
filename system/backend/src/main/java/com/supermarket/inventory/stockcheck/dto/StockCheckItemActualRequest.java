@@ -3,21 +3,21 @@ package com.supermarket.inventory.stockcheck.dto;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
-public class StockCheckRequest {
+public class StockCheckItemActualRequest {
 
-    @NotNull(message = "SKU ID不能为空")
-    private Long skuId;
+    @NotNull(message = "盘点明细ID不能为空")
+    private Long itemId;
 
-    @NotNull(message = "实际库存不能为空")
-    @Min(value = 0, message = "实际库存不能小于0")
+    @NotNull(message = "实际数量不能为空")
+    @Min(value = 0, message = "实际数量不能小于0")
     private Integer actualQuantity;
 
-    public Long getSkuId() {
-        return skuId;
+    public Long getItemId() {
+        return itemId;
     }
 
-    public void setSkuId(Long skuId) {
-        this.skuId = skuId;
+    public void setItemId(Long itemId) {
+        this.itemId = itemId;
     }
 
     public Integer getActualQuantity() {

@@ -1,6 +1,6 @@
 package com.supermarket.inventory.stockcheck.mapper;
 
-import com.supermarket.inventory.stockcheck.vo.StockCheckVO;
+import com.supermarket.inventory.stockcheck.entity.StockCheckItem;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -9,6 +9,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+
+import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,74 +32,83 @@ class StockCheckMapperTest {
     }
 
     @Test
-    void findPage_queriesStockChecksThroughSkuAndProduct() {
-        stockCheckMapper.findPage("cola", 20, 10);
+    void findPage_queriesStockCheckOrders() {
+        stockCheckMapper.findPage("6月", 20, 10);
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         verify(jdbcTemplate).query(
                 sqlCaptor.capture(),
                 any(RowMapper.class),
-                eq("%cola%"),
-                eq("%cola%"),
-                eq("%cola%"),
-                eq("%cola%"),
+                eq("%6月%"),
+                eq("%6月%"),
+                eq("%6月%"),
+                eq("%6月%"),
+                eq("%6月%"),
                 eq(10),
                 eq(20)
         );
 
         String sql = sqlCaptor.getValue();
-
-        assertThat(sql).contains("select c.*, k.sku_code, k.sku_name, p.product_code, p.product_name");
         assertThat(sql).contains("from stock_check c");
-        assertThat(sql).contains("inner join sku k on k.id = c.sku_id");
-        assertThat(sql).contains("inner join product p on p.id = k.product_id");
-        assertThat(sql).contains("p.product_code like ?");
-        assertThat(sql).contains("p.product_name like ?");
-        assertThat(sql).contains("k.sku_code like ?");
-        assertThat(sql).contains("k.sku_name like ?");
-        assertThat(sql).doesNotContain("c.product_id");
-        assertThat(sql).doesNotContain("findDefaultByProductId");
+        assertThat(sql).contains("left join category cat on cat.id = c.category_id");
+        assertThat(sql).contains("c.check_no like ?");
+        assertThat(sql).contains("c.name like ?");
+        assertThat(sql).doesNotContain("c.sku_id");
     }
 
     @Test
-    void count_queriesStockChecksThroughSkuAndProduct() {
+    void count_queriesStockCheckOrders() {
         when(jdbcTemplate.queryForObject(any(String.class), eq(Long.class), any(Object[].class))).thenReturn(0L);
 
-        stockCheckMapper.count("cola");
+        stockCheckMapper.count("6月");
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         verify(jdbcTemplate).queryForObject(
                 sqlCaptor.capture(),
                 eq(Long.class),
-                eq("%cola%"),
-                eq("%cola%"),
-                eq("%cola%"),
-                eq("%cola%")
+                eq("%6月%"),
+                eq("%6月%"),
+                eq("%6月%"),
+                eq("%6月%"),
+                eq("%6月%")
         );
 
         String sql = sqlCaptor.getValue();
-
         assertThat(sql).contains("from stock_check c");
-        assertThat(sql).contains("inner join sku k on k.id = c.sku_id");
-        assertThat(sql).contains("inner join product p on p.id = k.product_id");
-        assertThat(sql).contains("p.product_code like ?");
-        assertThat(sql).contains("p.product_name like ?");
-        assertThat(sql).contains("k.sku_code like ?");
-        assertThat(sql).contains("k.sku_name like ?");
-        assertThat(sql).doesNotContain("c.product_id");
-        assertThat(sql).doesNotContain("findDefaultByProductId");
+        assertThat(sql).contains("left join category cat on cat.id = c.category_id");
+        assertThat(sql).doesNotContain("inner join sku");
     }
 
     @Test
-    void insert_writesSkuIdOnly() {
-        stockCheckMapper.insert(20L, 50, 40, -10);
+    void insertItem_writesBatchSnapshot() {
+        StockCheckItem item = new StockCheckItem();
+        item.setStockCheckId(8L);
+        item.setSkuId(20L);
+        item.setStockBatchId(100L);
+        item.setBatchNo("SB20260602001");
+        item.setSystemQuantity(12);
+        item.setStatus("PENDING");
+        item.setExpireDate(LocalDate.of(2026, 7, 1));
+
+        stockCheckMapper.insertItem(item);
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
-        verify(jdbcTemplate).update(sqlCaptor.capture(), eq(20L), eq(50), eq(40), eq(-10));
+        verify(jdbcTemplate).update(
+                sqlCaptor.capture(),
+                eq(8L),
+                eq(20L),
+                eq(100L),
+                eq("SB20260602001"),
+                eq(12),
+                eq(null),
+                eq(null),
+                eq("PENDING"),
+                eq(java.sql.Date.valueOf(LocalDate.of(2026, 7, 1)))
+        );
 
         String sql = sqlCaptor.getValue();
-
-        assertThat(sql).contains("insert into stock_check(sku_id, system_quantity, actual_quantity, difference)");
-        assertThat(sql).doesNotContain("product_id");
+        assertThat(sql).contains("insert into stock_check_item");
+        assertThat(sql).contains("stock_batch_id");
+        assertThat(sql).contains("system_quantity");
     }
 }

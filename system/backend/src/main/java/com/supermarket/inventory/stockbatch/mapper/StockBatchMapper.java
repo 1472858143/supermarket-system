@@ -16,6 +16,8 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -187,6 +189,26 @@ public class StockBatchMapper {
         return findAvailableBatchesForConsumption(skuId);
     }
 
+    public List<StockBatch> findCheckableBySkuIds(List<Long> skuIds) {
+        if (skuIds == null || skuIds.isEmpty()) {
+            return List.of();
+        }
+        String placeholders = String.join(",", Collections.nCopies(skuIds.size(), "?"));
+        List<Object> params = new ArrayList<>(skuIds);
+        return jdbcTemplate.query(
+                """
+                select * from stock_batch
+                where status <> 'CLOSED'
+                  and sku_id in (
+                """ + placeholders + """
+                  )
+                order by sku_id asc, expire_date asc, id asc
+                """,
+                stockBatchRowMapper,
+                params.toArray()
+        );
+    }
+
     public int updateRemainingQuantityAndStatus(Long batchId, Long skuId, int quantity, String status) {
         return jdbcTemplate.update(
                 "update stock_batch set quantity = ?, status = ? where id = ? and sku_id = ?",
@@ -195,6 +217,15 @@ public class StockBatchMapper {
                 batchId,
                 skuId
         );
+    }
+
+    public int sumQuantityBySkuId(Long skuId) {
+        Integer total = jdbcTemplate.queryForObject(
+                "select coalesce(sum(quantity), 0) from stock_batch where sku_id = ?",
+                Integer.class,
+                skuId
+        );
+        return total == null ? 0 : total;
     }
 
     public List<StockBatchVO> findBySkuId(Long skuId) {
