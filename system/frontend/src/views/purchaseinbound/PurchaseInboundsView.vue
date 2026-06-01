@@ -45,7 +45,7 @@
               <span class="form-label">保质期天数</span>
               <input v-model.number="line.shelfLifeDays" class="input" type="number" min="1" step="1" />
             </label>
-            <div v-if="linePreview(line)" class="form-hint full">{{ linePreview(line) }}</div>
+            <div v-if="linePreviews[line.key]" class="form-hint full">{{ linePreviews[line.key] }}</div>
           </div>
         </div>
         <button class="btn btn-ghost add-line-button" type="button" @click="addLine">+ 添加明细</button>
@@ -140,6 +140,13 @@ const form = reactive({ items: [], remark: '' })
 
 const totalBaseQuantity = computed(() => form.items.reduce((sum, line) => sum + baseQuantity(line), 0))
 const totalAmount = computed(() => form.items.reduce((sum, line) => sum + lineAmount(line), 0))
+const linePreviews = computed(() => {
+  const previews = {}
+  form.items.forEach((line) => {
+    previews[line.key] = buildLinePreview(line)
+  })
+  return previews
+})
 
 function createLine() {
   return {
@@ -187,7 +194,7 @@ function expireDate(line) {
   const dd = String(date.getUTCDate()).padStart(2, '0')
   return `${yyyy}-${mm}-${dd}`
 }
-function linePreview(line) {
+function buildLinePreview(line) {
   if (!line.selectedSku || !line.unit || !line.quantity || line.quantity <= 0) {
     return ''
   }
