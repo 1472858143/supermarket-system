@@ -7,7 +7,7 @@ public class StockBatchCreateCommand {
 
     private Long skuId;
     private Long purchaseInboundItemId;
-    private Integer quantity;
+    private Integer baseQuantity;
     private BigDecimal purchasePrice;
     private LocalDate productionDate;
     private Integer shelfLifeDays;
@@ -28,12 +28,12 @@ public class StockBatchCreateCommand {
         this.purchaseInboundItemId = purchaseInboundItemId;
     }
 
-    public Integer getQuantity() {
-        return quantity;
+    public Integer getBaseQuantity() {
+        return baseQuantity;
     }
 
-    public void setQuantity(Integer quantity) {
-        this.quantity = quantity;
+    public void setBaseQuantity(Integer baseQuantity) {
+        this.baseQuantity = baseQuantity;
     }
 
     public BigDecimal getPurchasePrice() {
