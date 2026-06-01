@@ -50,7 +50,6 @@
           <span>当前库存</span><strong>{{ batchStock.quantity ?? '-' }}</strong>
         </div>
         <BaseTable :columns="batchColumns" :items="batches" :total="batches.length" :page="1" :page-size="batches.length || 1" :loading="batchLoading" :show-actions="false" empty-text="暂无批次">
-          <template #cell-quantity="{ item }">{{ item.initialQuantity ?? '-' }} / {{ item.quantity ?? '-' }}</template>
           <template #cell-purchasePrice="{ item }">{{ formatMoney(item.purchasePrice) }}</template>
         </BaseTable>
       </div>
@@ -87,7 +86,8 @@ const columns = [
 ]
 const batchColumns = [
   { key: 'batchNo', title: '批次号' },
-  { key: 'quantity', title: '批次数量/剩余数量' },
+  { key: 'initialQuantity', title: '批次数量' },
+  { key: 'quantity', title: '剩余数量' },
   { key: 'purchasePrice', title: '进价' },
   { key: 'productionDate', title: '生产日期' },
   { key: 'shelfLifeDays', title: '保质期' },
