@@ -69,7 +69,6 @@ import PermissionButton from '../../components/PermissionButton.vue'
 import StatusTag from '../../components/StatusTag.vue'
 import { listStocks, updateStockLimit } from '../../api/stock'
 import { listStockBatches } from '../../api/stockBatch'
-import { useAuthStore } from '../../stores/auth'
 
 const columns = [
   { key: 'productCode', title: '商品编号' },
@@ -109,17 +108,18 @@ const batches = ref([])
 const message = ref('')
 const messageType = ref('success')
 const form = reactive({ minStock: 0, maxStock: 100 })
-const authStore = useAuthStore()
+let batchRequestToken = 0
 const currentStockLabel = computed(() => {
   if (!editingStock.value) return ''
   const { productCode, productName, skuCode, spec } = editingStock.value
   return [productCode, productName, skuCode, spec].filter(Boolean).join(' / ')
 })
-const canMaintainLimit = computed(() => authStore.hasRole('ADMIN'))
 
 function showMessage(text, type = 'success') { message.value = text; messageType.value = type }
 function formatMoney(value, digits = 2) {
-  const number = Number(value || 0)
+  if (value === null || value === undefined || value === '') return '-'
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '-'
   return number.toFixed(digits)
 }
 async function loadData() {
@@ -145,17 +145,24 @@ function openLimit(item) {
   dialogVisible.value = true
 }
 async function openBatches(item) {
+  const requestToken = ++batchRequestToken
   batchStock.value = item
   batches.value = []
   batchDialogVisible.value = true
   batchLoading.value = true
   try {
     const data = await listStockBatches(item.skuId)
-    batches.value = Array.isArray(data) ? data : (data.items || [])
+    if (requestToken === batchRequestToken) {
+      batches.value = Array.isArray(data) ? data : (data.items || [])
+    }
   } catch (error) {
-    showMessage(error.message, 'error')
+    if (requestToken === batchRequestToken) {
+      showMessage(error.message, 'error')
+    }
   } finally {
-    batchLoading.value = false
+    if (requestToken === batchRequestToken) {
+      batchLoading.value = false
+    }
   }
 }
 async function submit() {
