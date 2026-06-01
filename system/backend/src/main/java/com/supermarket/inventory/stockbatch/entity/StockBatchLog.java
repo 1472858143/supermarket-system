@@ -13,6 +13,8 @@ public class StockBatchLog {
     private Integer afterQuantity;
     private String sourceType;
     private Long sourceId;
+    private String reason;
+    private String remark;
     private LocalDateTime createTime;
 
     public Long getId() {
@@ -85,6 +87,22 @@ public class StockBatchLog {
 
     public void setSourceId(Long sourceId) {
         this.sourceId = sourceId;
+    }
+
+    public String getReason() {
+        return reason;
+    }
+
+    public void setReason(String reason) {
+        this.reason = reason;
+    }
+
+    public String getRemark() {
+        return remark;
+    }
+
+    public void setRemark(String remark) {
+        this.remark = remark;
     }
 
     public LocalDateTime getCreateTime() {

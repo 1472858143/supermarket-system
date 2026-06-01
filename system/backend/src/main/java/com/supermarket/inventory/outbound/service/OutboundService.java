@@ -9,20 +9,26 @@ import com.supermarket.inventory.outbound.mapper.OutboundMapper;
 import com.supermarket.inventory.outbound.vo.OutboundVO;
 import com.supermarket.inventory.sku.service.SkuUnitResolver;
 import com.supermarket.inventory.stock.service.StockService;
+import com.supermarket.inventory.stockbatch.service.StockBatchService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class OutboundService {
 
+    private static final String SOURCE_TYPE_OUTBOUND_ORDER = "OUTBOUND_ORDER";
+
     private final OutboundMapper outboundMapper;
     private final StockService stockService;
     private final SkuUnitResolver skuUnitResolver;
+    private final StockBatchService stockBatchService;
 
-    public OutboundService(OutboundMapper outboundMapper, StockService stockService, SkuUnitResolver skuUnitResolver) {
+    public OutboundService(OutboundMapper outboundMapper, StockService stockService, SkuUnitResolver skuUnitResolver,
+                           StockBatchService stockBatchService) {
         this.outboundMapper = outboundMapper;
         this.stockService = stockService;
         this.skuUnitResolver = skuUnitResolver;
+        this.stockBatchService = stockBatchService;
     }
 
     public PageResult<OutboundVO> list(String keyword, Integer page, Integer pageSize) {
@@ -41,8 +47,7 @@ public class OutboundService {
         String operator = resolveOperator(request.getOperator());
         SkuUnitResolver.ResolvedUnit resolvedUnit = skuUnitResolver.resolve(request.getSkuId(), request.getUnit());
         int baseQuantity = calculateBaseQuantity(request.getQuantity(), resolvedUnit.conversionRate());
-        stockService.decrease(resolvedUnit.sku().getId(), baseQuantity);
-        outboundMapper.insert(
+        Long outboundId = outboundMapper.insert(
                 resolvedUnit.sku().getId(),
                 request.getQuantity(),
                 resolvedUnit.unit(),
@@ -50,6 +55,16 @@ public class OutboundService {
                 baseQuantity,
                 operator
         );
+        if (outboundId == null) {
+            throw new BusinessException("出库单保存失败");
+        }
+        stockBatchService.consumeAvailableBatches(
+                resolvedUnit.sku().getId(),
+                baseQuantity,
+                SOURCE_TYPE_OUTBOUND_ORDER,
+                outboundId
+        );
+        stockService.decrease(resolvedUnit.sku().getId(), baseQuantity);
     }
 
     private int calculateBaseQuantity(int quantity, int conversionRate) {

@@ -176,6 +176,7 @@ CREATE TABLE stock_batch (
     purchase_inbound_item_id BIGINT NOT NULL COMMENT '来源采购入库明细 ID',
     initial_quantity INT NOT NULL COMMENT '批次原始入库数量，基础单位',
     quantity INT NOT NULL COMMENT '批次当前剩余数量，基础单位',
+    status VARCHAR(20) NOT NULL DEFAULT 'AVAILABLE' COMMENT 'AVAILABLE / DEPLETED / EXPIRED / LOCKED / DAMAGED / CLOSED',
     purchase_price DECIMAL(10,2) NOT NULL COMMENT '采购操作单位进价快照',
     production_date DATE NOT NULL COMMENT '生产日期',
     shelf_life_days INT NOT NULL COMMENT '保质期天数',
@@ -192,6 +193,8 @@ CREATE TABLE stock_batch (
     CHECK (initial_quantity > 0),
     CHECK (quantity >= 0),
     CHECK (quantity <= initial_quantity),
+    CONSTRAINT ck_stock_batch_status CHECK (status IN ('AVAILABLE', 'DEPLETED', 'EXPIRED', 'LOCKED', 'DAMAGED', 'CLOSED')),
+    CONSTRAINT ck_stock_batch_closed_quantity CHECK (status <> 'CLOSED' OR quantity = 0),
     CHECK (purchase_price >= 0),
     CHECK (shelf_life_days > 0),
     CHECK (expire_date >= production_date)
@@ -201,12 +204,14 @@ CREATE TABLE stock_batch_log (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     stock_batch_id BIGINT NOT NULL COMMENT '库存批次 ID',
     sku_id BIGINT NOT NULL COMMENT 'SKU ID',
-    change_type VARCHAR(20) NOT NULL COMMENT 'PURCHASE_INBOUND / OUTBOUND / CHECK',
+    change_type VARCHAR(20) NOT NULL COMMENT 'PURCHASE_INBOUND / OUTBOUND / CHECK / BATCH_STATUS / DAMAGE',
     change_quantity INT NOT NULL COMMENT '本次变化数量',
     before_quantity INT NOT NULL COMMENT '变化前批次数量',
     after_quantity INT NOT NULL COMMENT '变化后批次数量',
     source_type VARCHAR(30) NOT NULL COMMENT '来源类型',
     source_id BIGINT NOT NULL COMMENT '来源 ID',
+    reason VARCHAR(50) DEFAULT NULL COMMENT '原因，主要用于报损',
+    remark VARCHAR(255) DEFAULT NULL COMMENT '备注',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY idx_stock_batch_log_batch (stock_batch_id, id),
     KEY idx_stock_batch_log_sku (sku_id, id),
@@ -214,8 +219,7 @@ CREATE TABLE stock_batch_log (
     CONSTRAINT fk_stock_batch_log_sku FOREIGN KEY (sku_id) REFERENCES sku(id),
     CONSTRAINT fk_stock_batch_log_batch_sku FOREIGN KEY (stock_batch_id, sku_id) REFERENCES stock_batch(id, sku_id),
     CHECK (after_quantity >= 0),
-    CHECK (before_quantity >= 0),
-    CHECK (change_quantity <> 0)
+    CHECK (before_quantity >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='库存批次流水表';
 
 CREATE TABLE stock_check (
@@ -234,7 +238,7 @@ CREATE TABLE stock_check (
 CREATE TABLE stock_log (
                            id BIGINT PRIMARY KEY AUTO_INCREMENT,
                            sku_id BIGINT NOT NULL,
-                           change_type VARCHAR(20) NOT NULL COMMENT 'INBOUND / PURCHASE_INBOUND / OUTBOUND / CHECK',
+                           change_type VARCHAR(20) NOT NULL COMMENT 'INBOUND / PURCHASE_INBOUND / OUTBOUND / CHECK / DAMAGE',
                            change_quantity INT NOT NULL,
                            before_quantity INT NOT NULL,
                            after_quantity INT NOT NULL,

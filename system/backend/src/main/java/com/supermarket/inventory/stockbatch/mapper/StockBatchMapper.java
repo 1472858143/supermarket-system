@@ -3,6 +3,7 @@ package com.supermarket.inventory.stockbatch.mapper;
 import com.supermarket.inventory.stockbatch.entity.StockBatch;
 import com.supermarket.inventory.stockbatch.entity.StockBatchLog;
 import com.supermarket.inventory.stockbatch.vo.StockBatchVO;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -12,12 +13,36 @@ import org.springframework.stereotype.Repository;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public class StockBatchMapper {
 
     private final JdbcTemplate jdbcTemplate;
+
+    private final RowMapper<StockBatch> stockBatchRowMapper = (rs, rowNum) -> {
+        StockBatch batch = new StockBatch();
+        batch.setId(rs.getLong("id"));
+        batch.setBatchNo(rs.getString("batch_no"));
+        batch.setSkuId(rs.getLong("sku_id"));
+        batch.setPurchaseInboundItemId(rs.getLong("purchase_inbound_item_id"));
+        batch.setInitialQuantity(rs.getInt("initial_quantity"));
+        batch.setQuantity(rs.getInt("quantity"));
+        batch.setStatus(rs.getString("status"));
+        batch.setPurchasePrice(rs.getBigDecimal("purchase_price"));
+        Date productionDate = rs.getDate("production_date");
+        batch.setProductionDate(productionDate == null ? null : productionDate.toLocalDate());
+        batch.setShelfLifeDays(rs.getInt("shelf_life_days"));
+        Date expireDate = rs.getDate("expire_date");
+        batch.setExpireDate(expireDate == null ? null : expireDate.toLocalDate());
+        batch.setCreateTime(toLocalDateTime(rs.getTimestamp("create_time")));
+        batch.setUpdateTime(toLocalDateTime(rs.getTimestamp("update_time")));
+        return batch;
+    };
 
     private final RowMapper<StockBatchVO> rowMapper = (rs, rowNum) -> {
         StockBatchVO vo = new StockBatchVO();
@@ -31,14 +56,15 @@ public class StockBatchMapper {
         vo.setPurchaseInboundItemId(rs.getLong("purchase_inbound_item_id"));
         vo.setInitialQuantity(rs.getInt("initial_quantity"));
         vo.setQuantity(rs.getInt("quantity"));
+        vo.setStatus(rs.getString("status"));
         vo.setPurchasePrice(rs.getBigDecimal("purchase_price"));
         Date productionDate = rs.getDate("production_date");
         vo.setProductionDate(productionDate == null ? null : productionDate.toLocalDate());
         vo.setShelfLifeDays(rs.getInt("shelf_life_days"));
         Date expireDate = rs.getDate("expire_date");
         vo.setExpireDate(expireDate == null ? null : expireDate.toLocalDate());
-        vo.setCreateTime(rs.getTimestamp("create_time").toLocalDateTime());
-        vo.setUpdateTime(rs.getTimestamp("update_time").toLocalDateTime());
+        vo.setCreateTime(toLocalDateTime(rs.getTimestamp("create_time")));
+        vo.setUpdateTime(toLocalDateTime(rs.getTimestamp("update_time")));
         return vo;
     };
 
@@ -61,9 +87,9 @@ public class StockBatchMapper {
                     """
                     insert into stock_batch(
                         batch_no, sku_id, purchase_inbound_item_id, initial_quantity, quantity,
-                        purchase_price, production_date, shelf_life_days, expire_date
+                        status, purchase_price, production_date, shelf_life_days, expire_date
                     )
-                    values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     Statement.RETURN_GENERATED_KEYS
             );
@@ -72,10 +98,11 @@ public class StockBatchMapper {
             ps.setLong(3, batch.getPurchaseInboundItemId());
             ps.setInt(4, batch.getInitialQuantity());
             ps.setInt(5, batch.getQuantity());
-            ps.setBigDecimal(6, batch.getPurchasePrice());
-            ps.setDate(7, Date.valueOf(batch.getProductionDate()));
-            ps.setInt(8, batch.getShelfLifeDays());
-            ps.setDate(9, Date.valueOf(batch.getExpireDate()));
+            ps.setString(6, batch.getStatus());
+            ps.setBigDecimal(7, batch.getPurchasePrice());
+            ps.setDate(8, Date.valueOf(batch.getProductionDate()));
+            ps.setInt(9, batch.getShelfLifeDays());
+            ps.setDate(10, Date.valueOf(batch.getExpireDate()));
             return ps;
         }, keyHolder);
         Number key = keyHolder.getKey();
@@ -87,9 +114,9 @@ public class StockBatchMapper {
                 """
                 insert into stock_batch_log(
                     stock_batch_id, sku_id, change_type, change_quantity,
-                    before_quantity, after_quantity, source_type, source_id
+                    before_quantity, after_quantity, source_type, source_id, reason, remark
                 )
-                values (?, ?, ?, ?, ?, ?, ?, ?)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 log.getStockBatchId(),
                 log.getSkuId(),
@@ -98,7 +125,71 @@ public class StockBatchMapper {
                 log.getBeforeQuantity(),
                 log.getAfterQuantity(),
                 log.getSourceType(),
-                log.getSourceId()
+                log.getSourceId(),
+                log.getReason(),
+                log.getRemark()
+        );
+    }
+
+    public Optional<StockBatch> findByIdAndSkuIdForUpdate(Long batchId, Long skuId) {
+        try {
+            return Optional.ofNullable(jdbcTemplate.queryForObject(
+                    "select * from stock_batch where id = ? and sku_id = ? for update",
+                    stockBatchRowMapper,
+                    batchId,
+                    skuId
+            ));
+        } catch (EmptyResultDataAccessException exception) {
+            return Optional.empty();
+        }
+    }
+
+    public int updateStatus(Long batchId, Long skuId, String status) {
+        return jdbcTemplate.update(
+                "update stock_batch set status = ? where id = ? and sku_id = ?",
+                status,
+                batchId,
+                skuId
+        );
+    }
+
+    public List<StockBatch> findExpiredAvailableBatchesForUpdate(LocalDate today) {
+        return jdbcTemplate.query(
+                """
+                select * from stock_batch
+                where status = 'AVAILABLE'
+                  and quantity > 0
+                  and expire_date < ?
+                order by expire_date asc, id asc
+                for update
+                """,
+                stockBatchRowMapper,
+                Date.valueOf(today)
+        );
+    }
+
+    public List<StockBatch> findAvailableBatchesForConsumption(Long skuId) {
+        return jdbcTemplate.query(
+                """
+                select * from stock_batch
+                where sku_id = ?
+                  and status = 'AVAILABLE'
+                  and quantity > 0
+                order by expire_date asc, id asc
+                for update
+                """,
+                stockBatchRowMapper,
+                skuId
+        );
+    }
+
+    public int updateRemainingQuantityAndStatus(Long batchId, Long skuId, int quantity, String status) {
+        return jdbcTemplate.update(
+                "update stock_batch set quantity = ?, status = ? where id = ? and sku_id = ?",
+                quantity,
+                status,
+                batchId,
+                skuId
         );
     }
 
@@ -115,5 +206,9 @@ public class StockBatchMapper {
                 rowMapper,
                 skuId
         );
+    }
+
+    private LocalDateTime toLocalDateTime(Timestamp timestamp) {
+        return timestamp == null ? null : timestamp.toLocalDateTime();
     }
 }

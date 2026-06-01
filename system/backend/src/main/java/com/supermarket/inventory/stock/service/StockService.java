@@ -74,6 +74,15 @@ public class StockService {
     }
 
     @Transactional
+    public StockVO damage(Long skuId, int quantity) {
+        Stock stock = lockStock(skuId);
+        int afterQuantity = stockDomainService.decrease(stock.getQuantity(), quantity);
+        stockMapper.updateQuantity(skuId, afterQuantity);
+        stockMapper.insertLog(skuId, "DAMAGE", -quantity, stock.getQuantity(), afterQuantity);
+        return getBySkuId(skuId);
+    }
+
+    @Transactional
     public StockVO adjustTo(Long skuId, int actualQuantity) {
         Stock stock = lockStock(skuId);
         int afterQuantity = stockDomainService.adjustTo(actualQuantity);

@@ -6,6 +6,7 @@ import com.supermarket.inventory.common.exception.BusinessException;
 import com.supermarket.inventory.sku.entity.Sku;
 import com.supermarket.inventory.sku.service.SkuUnitResolver;
 import com.supermarket.inventory.stock.service.StockService;
+import com.supermarket.inventory.stockbatch.service.StockBatchService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,32 +31,39 @@ class OutboundServiceTest {
     @Mock
     private SkuUnitResolver skuUnitResolver;
 
+    @Mock
+    private StockBatchService stockBatchService;
+
     private OutboundService outboundService;
 
     @BeforeEach
     void setUp() {
-        outboundService = new OutboundService(outboundMapper, stockService, skuUnitResolver);
+        outboundService = new OutboundService(outboundMapper, stockService, skuUnitResolver, stockBatchService);
     }
 
     @Test
-    void create_decreasesBaseQuantityStockBeforeWritingOutboundRecord() {
+    void create_writesOutboundRecordThenConsumesBatchesAndDecreasesTotalStock() {
         when(skuUnitResolver.resolve(20L, "箱"))
                 .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(20L), "箱", 24));
+        when(outboundMapper.insert(20L, 2, "箱", 24, 48, "operator")).thenReturn(99L);
 
         outboundService.create(request(20L, 2, "箱", 24, "operator"));
 
-        var inOrder = inOrder(stockService, outboundMapper);
-        inOrder.verify(stockService).decrease(20L, 48);
+        var inOrder = inOrder(outboundMapper, stockBatchService, stockService);
         inOrder.verify(outboundMapper).insert(20L, 2, "箱", 24, 48, "operator");
+        inOrder.verify(stockBatchService).consumeAvailableBatches(20L, 48, "OUTBOUND_ORDER", 99L);
+        inOrder.verify(stockService).decrease(20L, 48);
     }
 
     @Test
     void create_usesBaseUnitWhenUnitIsNotProvided() {
         when(skuUnitResolver.resolve(20L, null))
                 .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(20L), "瓶", 1));
+        when(outboundMapper.insert(20L, 10, "瓶", 1, 10, "operator")).thenReturn(99L);
 
         outboundService.create(request(20L, 10, null, null, "operator"));
 
+        verify(stockBatchService).consumeAvailableBatches(20L, 10, "OUTBOUND_ORDER", 99L);
         verify(stockService).decrease(20L, 10);
         verify(outboundMapper).insert(20L, 10, "瓶", 1, 10, "operator");
     }
@@ -64,11 +72,27 @@ class OutboundServiceTest {
     void create_usesResolverConversionRateInsteadOfRequestSnapshot() {
         when(skuUnitResolver.resolve(20L, "箱"))
                 .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(20L), "箱", 24));
+        when(outboundMapper.insert(20L, 2, "箱", 24, 48, "operator")).thenReturn(99L);
 
         outboundService.create(request(20L, 2, "箱", 999, "operator"));
 
+        verify(stockBatchService).consumeAvailableBatches(20L, 48, "OUTBOUND_ORDER", 99L);
         verify(stockService).decrease(20L, 48);
         verify(outboundMapper).insert(20L, 2, "箱", 24, 48, "operator");
+    }
+
+    @Test
+    void create_doesNotDecreaseTotalStockWhenBatchConsumptionFails() {
+        when(skuUnitResolver.resolve(20L, "箱"))
+                .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(20L), "箱", 24));
+        when(outboundMapper.insert(20L, 2, "箱", 24, 48, "operator")).thenReturn(99L);
+        org.mockito.Mockito.doThrow(new BusinessException("可用批次数不足"))
+                .when(stockBatchService).consumeAvailableBatches(20L, 48, "OUTBOUND_ORDER", 99L);
+
+        assertThatThrownBy(() -> outboundService.create(request(20L, 2, "箱", 24, "operator")))
+                .isInstanceOf(BusinessException.class);
+
+        verify(stockService, never()).decrease(20L, 48);
     }
 
     @Test
@@ -81,6 +105,7 @@ class OutboundServiceTest {
                 .hasMessage("基础单位数量超出范围");
 
         verify(stockService, never()).decrease(20L, -2);
+        verify(stockBatchService, never()).consumeAvailableBatches(20L, -2, "OUTBOUND_ORDER", null);
         verify(outboundMapper, never()).insert(20L, Integer.MAX_VALUE, "箱", 2, -2, "operator");
     }
 

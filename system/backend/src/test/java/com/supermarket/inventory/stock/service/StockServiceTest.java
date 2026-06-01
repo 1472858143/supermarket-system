@@ -89,6 +89,18 @@ class StockServiceTest {
     }
 
     @Test
+    void damage_decreasesSkuQuantityAndWritesDamageLog() {
+        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(Optional.of(stock(20L, 8)));
+        when(stockMapper.findVOBySkuId(20L)).thenReturn(Optional.of(stockVO(20L, 5)));
+
+        StockVO vo = stockService.damage(20L, 3);
+
+        assertThat(vo.getQuantity()).isEqualTo(5);
+        verify(stockMapper).updateQuantity(20L, 5);
+        verify(stockMapper).insertLog(20L, "DAMAGE", -3, 8, 5);
+    }
+
+    @Test
     void updateLimit_updatesSkuLimit() {
         StockLimitUpdateRequest request = new StockLimitUpdateRequest();
         request.setMinStock(2);

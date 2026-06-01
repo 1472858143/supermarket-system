@@ -12,6 +12,7 @@ public class StockBatch {
     private Long purchaseInboundItemId;
     private Integer initialQuantity;
     private Integer quantity;
+    private String status = "AVAILABLE";
     private BigDecimal purchasePrice;
     private LocalDate productionDate;
     private Integer shelfLifeDays;
@@ -65,6 +66,14 @@ public class StockBatch {
 
     public void setQuantity(Integer quantity) {
         this.quantity = quantity;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public BigDecimal getPurchasePrice() {

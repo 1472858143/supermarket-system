@@ -3,8 +3,12 @@ package com.supermarket.inventory.outbound.mapper;
 import com.supermarket.inventory.outbound.vo.OutboundVO;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
+import java.sql.PreparedStatement;
+import java.sql.Statement;
 import java.util.List;
 
 @Repository
@@ -76,18 +80,25 @@ public class OutboundMapper {
         );
     }
 
-    public void insert(Long skuId, int quantity, String unit, int conversionRate, int baseQuantity, String operator) {
-        jdbcTemplate.update(
-                """
-                insert into outbound_order(sku_id, quantity, unit, conversion_rate, base_quantity, operator)
-                values (?, ?, ?, ?, ?, ?)
-                """,
-                skuId,
-                quantity,
-                unit,
-                conversionRate,
-                baseQuantity,
-                operator
-        );
+    public Long insert(Long skuId, int quantity, String unit, int conversionRate, int baseQuantity, String operator) {
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+        jdbcTemplate.update(connection -> {
+            PreparedStatement ps = connection.prepareStatement(
+                    """
+                    insert into outbound_order(sku_id, quantity, unit, conversion_rate, base_quantity, operator)
+                    values (?, ?, ?, ?, ?, ?)
+                    """,
+                    Statement.RETURN_GENERATED_KEYS
+            );
+            ps.setLong(1, skuId);
+            ps.setInt(2, quantity);
+            ps.setString(3, unit);
+            ps.setInt(4, conversionRate);
+            ps.setInt(5, baseQuantity);
+            ps.setString(6, operator);
+            return ps;
+        }, keyHolder);
+        Number key = keyHolder.getKey();
+        return key == null ? null : key.longValue();
     }
 }
