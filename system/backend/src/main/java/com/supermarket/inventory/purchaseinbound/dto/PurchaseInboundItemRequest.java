@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 public class PurchaseInboundItemRequest {
 
@@ -22,6 +23,13 @@ public class PurchaseInboundItemRequest {
     @DecimalMin(value = "0.00", message = "采购单价不能小于0")
     @Digits(integer = 8, fraction = 2, message = "采购单价最多8位整数和2位小数")
     private BigDecimal purchasePrice;
+
+    @NotNull(message = "生产日期不能为空")
+    private LocalDate productionDate;
+
+    @NotNull(message = "保质期天数不能为空")
+    @Min(value = 1, message = "保质期天数必须大于0")
+    private Integer shelfLifeDays;
 
     public Long getSkuId() {
         return skuId;
@@ -53,5 +61,21 @@ public class PurchaseInboundItemRequest {
 
     public void setPurchasePrice(BigDecimal purchasePrice) {
         this.purchasePrice = purchasePrice;
+    }
+
+    public LocalDate getProductionDate() {
+        return productionDate;
+    }
+
+    public void setProductionDate(LocalDate productionDate) {
+        this.productionDate = productionDate;
+    }
+
+    public Integer getShelfLifeDays() {
+        return shelfLifeDays;
+    }
+
+    public void setShelfLifeDays(Integer shelfLifeDays) {
+        this.shelfLifeDays = shelfLifeDays;
     }
 }

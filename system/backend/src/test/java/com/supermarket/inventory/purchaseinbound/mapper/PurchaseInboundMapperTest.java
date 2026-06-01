@@ -82,9 +82,11 @@ class PurchaseInboundMapperTest {
         String sql = sqlCaptor.getValue();
 
         assertThat(sql).contains("select item.*, k.sku_code, k.sku_name, p.product_code, p.product_name");
+        assertThat(sql).contains("b.batch_no, b.production_date, b.shelf_life_days, b.expire_date");
         assertThat(sql).contains("from purchase_inbound_item item");
         assertThat(sql).contains("inner join sku k on k.id = item.sku_id");
         assertThat(sql).contains("inner join product p on p.id = k.product_id");
+        assertThat(sql).contains("left join stock_batch b on b.purchase_inbound_item_id = item.id");
         assertThat(sql).contains("where item.purchase_inbound_id = ?");
         assertThat(sql).contains("order by item.id asc");
     }

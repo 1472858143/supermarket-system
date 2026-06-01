@@ -12,6 +12,9 @@ import com.supermarket.inventory.purchaseinbound.mapper.PurchaseInboundMapper;
 import com.supermarket.inventory.purchaseinbound.vo.PurchaseInboundVO;
 import com.supermarket.inventory.sku.service.SkuUnitResolver;
 import com.supermarket.inventory.stock.service.StockService;
+import com.supermarket.inventory.stockbatch.dto.StockBatchCreateCommand;
+import com.supermarket.inventory.stockbatch.entity.StockBatch;
+import com.supermarket.inventory.stockbatch.service.StockBatchService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,15 +37,18 @@ public class PurchaseInboundService {
     private final PurchaseInboundMapper purchaseInboundMapper;
     private final SkuUnitResolver skuUnitResolver;
     private final StockService stockService;
+    private final StockBatchService stockBatchService;
 
     public PurchaseInboundService(
             PurchaseInboundMapper purchaseInboundMapper,
             SkuUnitResolver skuUnitResolver,
-            StockService stockService
+            StockService stockService,
+            StockBatchService stockBatchService
     ) {
         this.purchaseInboundMapper = purchaseInboundMapper;
         this.skuUnitResolver = skuUnitResolver;
         this.stockService = stockService;
+        this.stockBatchService = stockBatchService;
     }
 
     public PageResult<PurchaseInboundVO> list(String keyword, Integer page, Integer pageSize) {
@@ -66,11 +72,12 @@ public class PurchaseInboundService {
     @Transactional
     public PurchaseInboundVO create(PurchaseInboundRequest request) {
         String operator = CurrentUserContext.get().getUsername();
-        List<PurchaseInboundItem> items = new ArrayList<>();
+        List<PreparedInboundItem> items = new ArrayList<>();
         int totalQuantity = 0;
         BigDecimal totalAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 
         for (PurchaseInboundItemRequest requestItem : request.getItems()) {
+            validateBatchFields(requestItem);
             SkuUnitResolver.ResolvedUnit resolvedUnit = skuUnitResolver.resolve(requestItem.getSkuId(), requestItem.getUnit());
             int baseQuantity = calculateBaseQuantity(requestItem.getQuantity(), resolvedUnit.conversionRate());
             BigDecimal purchasePrice = validatePurchasePrice(requestItem.getPurchasePrice());
@@ -92,7 +99,7 @@ public class PurchaseInboundService {
             item.setPurchasePrice(purchasePrice);
             item.setCostPrice(costPrice);
             item.setAmount(amount);
-            items.add(item);
+            items.add(new PreparedInboundItem(item, requestItem.getProductionDate(), requestItem.getShelfLifeDays()));
 
             totalQuantity = addBaseQuantity(totalQuantity, baseQuantity);
             totalAmount = totalAmount.add(amount);
@@ -113,15 +120,48 @@ public class PurchaseInboundService {
         } catch (DuplicateKeyException exception) {
             throw new BusinessException("采购入库单号重复，请重试");
         }
-        for (PurchaseInboundItem item : items) {
+        for (PreparedInboundItem preparedItem : items) {
+            PurchaseInboundItem item = preparedItem.item();
             item.setPurchaseInboundId(inboundId);
-        }
-        purchaseInboundMapper.insertItems(items);
-        for (PurchaseInboundItem item : items) {
+            Long itemId = purchaseInboundMapper.insertItem(item);
+            item.setId(itemId);
+            StockBatch batch = stockBatchService.createFromPurchaseInboundItem(toStockBatchCreateCommand(
+                    item,
+                    preparedItem.productionDate(),
+                    preparedItem.shelfLifeDays()
+            ));
             stockService.increase(item.getSkuId(), item.getBaseQuantity(), STOCK_CHANGE_TYPE);
+            stockBatchService.writePurchaseInboundLog(batch);
         }
         return purchaseInboundMapper.findById(inboundId)
                 .orElseThrow(() -> new BusinessException(404, "采购入库单不存在"));
+    }
+
+    private void validateBatchFields(PurchaseInboundItemRequest requestItem) {
+        if (requestItem.getProductionDate() == null) {
+            throw new BusinessException("生产日期不能为空");
+        }
+        if (requestItem.getShelfLifeDays() == null || requestItem.getShelfLifeDays() <= 0) {
+            throw new BusinessException("保质期天数必须大于0");
+        }
+    }
+
+    private StockBatchCreateCommand toStockBatchCreateCommand(
+            PurchaseInboundItem item,
+            LocalDate productionDate,
+            Integer shelfLifeDays
+    ) {
+        StockBatchCreateCommand command = new StockBatchCreateCommand();
+        command.setSkuId(item.getSkuId());
+        command.setPurchaseInboundItemId(item.getId());
+        command.setBaseQuantity(item.getBaseQuantity());
+        command.setPurchasePrice(item.getPurchasePrice());
+        command.setProductionDate(productionDate);
+        command.setShelfLifeDays(shelfLifeDays);
+        return command;
+    }
+
+    private record PreparedInboundItem(PurchaseInboundItem item, LocalDate productionDate, Integer shelfLifeDays) {
     }
 
     private int calculateBaseQuantity(int quantity, int conversionRate) {

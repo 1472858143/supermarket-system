@@ -11,9 +11,10 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
 import java.sql.PreparedStatement;
+import java.sql.Date;
 import java.sql.Statement;
-import java.util.List;
 import java.util.Optional;
+import java.util.List;
 
 @Repository
 public class PurchaseInboundMapper {
@@ -48,6 +49,16 @@ public class PurchaseInboundMapper {
         vo.setPurchasePrice(rs.getBigDecimal("purchase_price"));
         vo.setCostPrice(rs.getBigDecimal("cost_price"));
         vo.setAmount(rs.getBigDecimal("amount"));
+        vo.setBatchNo(rs.getString("batch_no"));
+        Date productionDate = rs.getDate("production_date");
+        if (productionDate != null) {
+            vo.setProductionDate(productionDate.toLocalDate());
+        }
+        vo.setShelfLifeDays((Integer) rs.getObject("shelf_life_days"));
+        Date expireDate = rs.getDate("expire_date");
+        if (expireDate != null) {
+            vo.setExpireDate(expireDate.toLocalDate());
+        }
         return vo;
     };
 
@@ -85,29 +96,34 @@ public class PurchaseInboundMapper {
         return key == null ? null : key.longValue();
     }
 
-    public void insertItems(List<PurchaseInboundItem> items) {
-        jdbcTemplate.batchUpdate(
-                """
-                insert into purchase_inbound_item(
-                    purchase_inbound_id, sku_id, quantity, unit, conversion_rate,
-                    base_quantity, purchase_price, cost_price, amount
-                )
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                items,
-                items.size(),
-                (ps, item) -> {
-                    ps.setLong(1, item.getPurchaseInboundId());
-                    ps.setLong(2, item.getSkuId());
-                    ps.setInt(3, item.getQuantity());
-                    ps.setString(4, item.getUnit());
-                    ps.setInt(5, item.getConversionRate());
-                    ps.setInt(6, item.getBaseQuantity());
-                    ps.setBigDecimal(7, item.getPurchasePrice());
-                    ps.setBigDecimal(8, item.getCostPrice());
-                    ps.setBigDecimal(9, item.getAmount());
-                }
-        );
+    public Long insertItem(PurchaseInboundItem item) {
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+        jdbcTemplate.update(connection -> {
+            PreparedStatement ps = connection.prepareStatement(
+                    """
+                    insert into purchase_inbound_item(
+                        purchase_inbound_id, sku_id, quantity, unit, conversion_rate,
+                        base_quantity, purchase_price, cost_price, amount
+                    )
+                    values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    Statement.RETURN_GENERATED_KEYS
+            );
+            ps.setLong(1, item.getPurchaseInboundId());
+            ps.setLong(2, item.getSkuId());
+            ps.setInt(3, item.getQuantity());
+            ps.setString(4, item.getUnit());
+            ps.setInt(5, item.getConversionRate());
+            ps.setInt(6, item.getBaseQuantity());
+            ps.setBigDecimal(7, item.getPurchasePrice());
+            ps.setBigDecimal(8, item.getCostPrice());
+            ps.setBigDecimal(9, item.getAmount());
+            return ps;
+        }, keyHolder);
+        Number key = keyHolder.getKey();
+        Long id = key == null ? null : key.longValue();
+        item.setId(id);
+        return id;
     }
 
     public Optional<PurchaseInboundVO> findById(Long id) {
@@ -122,10 +138,12 @@ public class PurchaseInboundMapper {
     public List<PurchaseInboundItemVO> findItemsByInboundId(Long inboundId) {
         return jdbcTemplate.query(
                 """
-                select item.*, k.sku_code, k.sku_name, p.product_code, p.product_name
+                select item.*, k.sku_code, k.sku_name, p.product_code, p.product_name,
+                       b.batch_no, b.production_date, b.shelf_life_days, b.expire_date
                 from purchase_inbound_item item
                 inner join sku k on k.id = item.sku_id
                 inner join product p on p.id = k.product_id
+                left join stock_batch b on b.purchase_inbound_item_id = item.id
                 where item.purchase_inbound_id = ?
                 order by item.id asc
                 """,

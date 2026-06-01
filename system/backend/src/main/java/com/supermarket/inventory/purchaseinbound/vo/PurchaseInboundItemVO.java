@@ -1,6 +1,7 @@
 package com.supermarket.inventory.purchaseinbound.vo;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 public class PurchaseInboundItemVO {
 
@@ -17,6 +18,10 @@ public class PurchaseInboundItemVO {
     private BigDecimal purchasePrice;
     private BigDecimal costPrice;
     private BigDecimal amount;
+    private String batchNo;
+    private LocalDate productionDate;
+    private Integer shelfLifeDays;
+    private LocalDate expireDate;
 
     public Long getId() {
         return id;
@@ -120,5 +125,37 @@ public class PurchaseInboundItemVO {
 
     public void setAmount(BigDecimal amount) {
         this.amount = amount;
+    }
+
+    public String getBatchNo() {
+        return batchNo;
+    }
+
+    public void setBatchNo(String batchNo) {
+        this.batchNo = batchNo;
+    }
+
+    public LocalDate getProductionDate() {
+        return productionDate;
+    }
+
+    public void setProductionDate(LocalDate productionDate) {
+        this.productionDate = productionDate;
+    }
+
+    public Integer getShelfLifeDays() {
+        return shelfLifeDays;
+    }
+
+    public void setShelfLifeDays(Integer shelfLifeDays) {
+        this.shelfLifeDays = shelfLifeDays;
+    }
+
+    public LocalDate getExpireDate() {
+        return expireDate;
+    }
+
+    public void setExpireDate(LocalDate expireDate) {
+        this.expireDate = expireDate;
     }
 }
