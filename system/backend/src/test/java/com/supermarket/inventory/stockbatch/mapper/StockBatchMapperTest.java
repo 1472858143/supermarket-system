@@ -144,12 +144,7 @@ class StockBatchMapperTest {
 
         assertThat(result).isEmpty();
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
-        verify(jdbcTemplate).queryForObject(
-                sqlCaptor.capture(),
-                any(RowMapper.class),
-                eq(10L),
-                eq(20L)
-        );
+        verify(jdbcTemplate).queryForObject(sqlCaptor.capture(), any(RowMapper.class), eq(10L), eq(20L));
         String sql = sqlCaptor.getValue();
         assertThat(sql).contains("select * from stock_batch");
         assertThat(sql).contains("where id = ? and sku_id = ?");
@@ -177,11 +172,7 @@ class StockBatchMapperTest {
 
         assertThat(result).isEmpty();
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
-        verify(jdbcTemplate).query(
-                sqlCaptor.capture(),
-                any(RowMapper.class),
-                eq(Date.valueOf(LocalDate.of(2026, 6, 1)))
-        );
+        verify(jdbcTemplate).query(sqlCaptor.capture(), any(RowMapper.class), eq(Date.valueOf(LocalDate.of(2026, 6, 1))));
         String sql = sqlCaptor.getValue();
         assertThat(sql).contains("select * from stock_batch");
         assertThat(sql).contains("status = 'AVAILABLE'");
@@ -192,18 +183,14 @@ class StockBatchMapperTest {
     }
 
     @Test
-    void findAvailableBatchesForConsumption_locksOnlyAvailablePositiveBatchesInFefoOrder() {
+    void findConsumableBySkuIdForUpdate_locksOnlyAvailablePositiveBatchesInFefoOrder() {
         when(jdbcTemplate.query(anyString(), any(RowMapper.class), eq(20L))).thenReturn(List.of());
 
-        List<StockBatch> result = stockBatchMapper.findAvailableBatchesForConsumption(20L);
+        List<StockBatch> result = stockBatchMapper.findConsumableBySkuIdForUpdate(20L);
 
         assertThat(result).isEmpty();
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
-        verify(jdbcTemplate).query(
-                sqlCaptor.capture(),
-                any(RowMapper.class),
-                eq(20L)
-        );
+        verify(jdbcTemplate).query(sqlCaptor.capture(), any(RowMapper.class), eq(20L));
         String sql = sqlCaptor.getValue();
         assertThat(sql).contains("select * from stock_batch");
         assertThat(sql).contains("sku_id = ?");
@@ -215,15 +202,14 @@ class StockBatchMapperTest {
 
     @Test
     void updateRemainingQuantityAndStatus_updatesQuantityAndStatusByIdAndSkuId() {
-        stockBatchMapper.updateRemainingQuantityAndStatus(10L, 20L, 5, "AVAILABLE");
+        when(jdbcTemplate.update(anyString(), eq(5), eq("AVAILABLE"), eq(10L), eq(20L))).thenReturn(1);
 
-        verify(jdbcTemplate).update(
-                "update stock_batch set quantity = ?, status = ? where id = ? and sku_id = ?",
-                5,
-                "AVAILABLE",
-                10L,
-                20L
-        );
+        int updated = stockBatchMapper.updateRemainingQuantityAndStatus(10L, 20L, 5, "AVAILABLE");
+
+        assertThat(updated).isEqualTo(1);
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).update(sqlCaptor.capture(), eq(5), eq("AVAILABLE"), eq(10L), eq(20L));
+        assertThat(sqlCaptor.getValue()).contains("update stock_batch set quantity = ?, status = ? where id = ? and sku_id = ?");
     }
 
     @Test
@@ -231,11 +217,7 @@ class StockBatchMapperTest {
         stockBatchMapper.findBySkuId(20L);
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
-        verify(jdbcTemplate).query(
-                sqlCaptor.capture(),
-                any(RowMapper.class),
-                eq(20L)
-        );
+        verify(jdbcTemplate).query(sqlCaptor.capture(), any(RowMapper.class), eq(20L));
 
         String sql = sqlCaptor.getValue();
         assertThat(sql).contains("from stock_batch b");

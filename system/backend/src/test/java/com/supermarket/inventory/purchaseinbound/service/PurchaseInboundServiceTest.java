@@ -13,10 +13,8 @@ import com.supermarket.inventory.purchaseinbound.vo.PurchaseInboundItemVO;
 import com.supermarket.inventory.purchaseinbound.vo.PurchaseInboundVO;
 import com.supermarket.inventory.sku.entity.Sku;
 import com.supermarket.inventory.sku.service.SkuUnitResolver;
+import com.supermarket.inventory.stock.dto.StockIncreaseCommand;
 import com.supermarket.inventory.stock.service.StockService;
-import com.supermarket.inventory.stockbatch.dto.StockBatchCreateCommand;
-import com.supermarket.inventory.stockbatch.entity.StockBatch;
-import com.supermarket.inventory.stockbatch.service.StockBatchService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,14 +51,11 @@ class PurchaseInboundServiceTest {
     @Mock
     private StockService stockService;
 
-    @Mock
-    private StockBatchService stockBatchService;
-
     private PurchaseInboundService purchaseInboundService;
 
     @BeforeEach
     void setUp() {
-        purchaseInboundService = new PurchaseInboundService(purchaseInboundMapper, skuUnitResolver, stockService, stockBatchService);
+        purchaseInboundService = new PurchaseInboundService(purchaseInboundMapper, skuUnitResolver, stockService);
         CurrentUserContext.set(new CurrentUser(1L, "admin", List.of("ADMIN")));
     }
 
@@ -118,8 +113,6 @@ class PurchaseInboundServiceTest {
             item.setId(1000L);
             return 1000L;
         });
-        StockBatch batch = batch(2000L);
-        when(stockBatchService.createFromPurchaseInboundItem(any(StockBatchCreateCommand.class))).thenReturn(batch);
         when(purchaseInboundMapper.findById(100L)).thenReturn(Optional.of(vo(100L)));
 
         PurchaseInboundVO result = purchaseInboundService.create(request(List.of(item(20L, 5, null, "12.50")), "arrived"));
@@ -151,22 +144,23 @@ class PurchaseInboundServiceTest {
         assertThat(savedItem.getCostPrice()).isEqualByComparingTo("12.5000");
         assertThat(savedItem.getAmount()).isEqualByComparingTo("62.50");
 
-        ArgumentCaptor<StockBatchCreateCommand> commandCaptor = ArgumentCaptor.forClass(StockBatchCreateCommand.class);
-        verify(stockBatchService).createFromPurchaseInboundItem(commandCaptor.capture());
-        StockBatchCreateCommand command = commandCaptor.getValue();
+        ArgumentCaptor<StockIncreaseCommand> commandCaptor = ArgumentCaptor.forClass(StockIncreaseCommand.class);
+        verify(stockService).increase(commandCaptor.capture());
+        StockIncreaseCommand command = commandCaptor.getValue();
         assertThat(command.getSkuId()).isEqualTo(20L);
+        assertThat(command.getQuantity()).isEqualTo(5);
+        assertThat(command.getPurchaseInboundId()).isEqualTo(100L);
         assertThat(command.getPurchaseInboundItemId()).isEqualTo(1000L);
-        assertThat(command.getBaseQuantity()).isEqualTo(5);
         assertThat(command.getPurchasePrice()).isEqualByComparingTo("12.50");
         assertThat(command.getProductionDate()).isEqualTo(LocalDate.of(2026, 6, 1));
-        assertThat(command.getShelfLifeDays()).isEqualTo(180);
+        assertThat(command.getExpiryDate()).isEqualTo(LocalDate.of(2026, 11, 28));
+        assertThat(command.getSourceType()).isEqualTo("PURCHASE_INBOUND_ITEM");
+        assertThat(command.getSourceId()).isEqualTo(1000L);
 
-        InOrder inOrder = inOrder(purchaseInboundMapper, stockBatchService, stockService);
+        InOrder inOrder = inOrder(purchaseInboundMapper, stockService);
         inOrder.verify(purchaseInboundMapper).insertInbound(any(PurchaseInbound.class));
         inOrder.verify(purchaseInboundMapper).insertItem(any(PurchaseInboundItem.class));
-        inOrder.verify(stockBatchService).createFromPurchaseInboundItem(any(StockBatchCreateCommand.class));
-        inOrder.verify(stockService).increase(20L, 5, "PURCHASE_INBOUND");
-        inOrder.verify(stockBatchService).writePurchaseInboundLog(batch);
+        inOrder.verify(stockService).increase(any(StockIncreaseCommand.class));
     }
 
     @Test
@@ -184,8 +178,6 @@ class PurchaseInboundServiceTest {
             item.setId(id);
             return id;
         });
-        when(stockBatchService.createFromPurchaseInboundItem(any(StockBatchCreateCommand.class)))
-                .thenReturn(batch(2001L), batch(2002L));
         when(purchaseInboundMapper.findById(101L)).thenReturn(Optional.of(vo(101L)));
 
         PurchaseInboundVO result = purchaseInboundService.create(request(List.of(
@@ -228,26 +220,28 @@ class PurchaseInboundServiceTest {
         assertThat(items.get(1).getCostPrice()).isEqualByComparingTo("2.0000");
         assertThat(items.get(1).getAmount()).isEqualByComparingTo("30.00");
 
-        ArgumentCaptor<StockBatchCreateCommand> commandCaptor = ArgumentCaptor.forClass(StockBatchCreateCommand.class);
-        verify(stockBatchService, org.mockito.Mockito.times(2)).createFromPurchaseInboundItem(commandCaptor.capture());
-        List<StockBatchCreateCommand> commands = commandCaptor.getAllValues();
+        ArgumentCaptor<StockIncreaseCommand> commandCaptor = ArgumentCaptor.forClass(StockIncreaseCommand.class);
+        verify(stockService, org.mockito.Mockito.times(2)).increase(commandCaptor.capture());
+        List<StockIncreaseCommand> commands = commandCaptor.getAllValues();
         assertThat(commands).hasSize(2);
         assertThat(commands.get(0).getSkuId()).isEqualTo(20L);
+        assertThat(commands.get(0).getQuantity()).isEqualTo(48);
+        assertThat(commands.get(0).getPurchaseInboundId()).isEqualTo(101L);
         assertThat(commands.get(0).getPurchaseInboundItemId()).isEqualTo(1001L);
-        assertThat(commands.get(0).getBaseQuantity()).isEqualTo(48);
         assertThat(commands.get(0).getPurchasePrice()).isEqualByComparingTo("48.00");
         assertThat(commands.get(0).getProductionDate()).isEqualTo(LocalDate.of(2026, 6, 1));
-        assertThat(commands.get(0).getShelfLifeDays()).isEqualTo(180);
+        assertThat(commands.get(0).getExpiryDate()).isEqualTo(LocalDate.of(2026, 11, 28));
+        assertThat(commands.get(0).getSourceType()).isEqualTo("PURCHASE_INBOUND_ITEM");
+        assertThat(commands.get(0).getSourceId()).isEqualTo(1001L);
         assertThat(commands.get(1).getSkuId()).isEqualTo(21L);
+        assertThat(commands.get(1).getQuantity()).isEqualTo(15);
+        assertThat(commands.get(1).getPurchaseInboundId()).isEqualTo(101L);
         assertThat(commands.get(1).getPurchaseInboundItemId()).isEqualTo(1002L);
-        assertThat(commands.get(1).getBaseQuantity()).isEqualTo(15);
         assertThat(commands.get(1).getPurchasePrice()).isEqualByComparingTo("10.00");
         assertThat(commands.get(1).getProductionDate()).isEqualTo(LocalDate.of(2026, 6, 1));
-        assertThat(commands.get(1).getShelfLifeDays()).isEqualTo(180);
-
-        verify(stockService).increase(20L, 48, "PURCHASE_INBOUND");
-        verify(stockService).increase(21L, 15, "PURCHASE_INBOUND");
-        verify(stockBatchService, org.mockito.Mockito.times(2)).writePurchaseInboundLog(any(StockBatch.class));
+        assertThat(commands.get(1).getExpiryDate()).isEqualTo(LocalDate.of(2026, 11, 28));
+        assertThat(commands.get(1).getSourceType()).isEqualTo("PURCHASE_INBOUND_ITEM");
+        assertThat(commands.get(1).getSourceId()).isEqualTo(1002L);
     }
 
     @Test
@@ -262,7 +256,6 @@ class PurchaseInboundServiceTest {
         verify(purchaseInboundMapper, never()).insertInbound(any(PurchaseInbound.class));
         verify(purchaseInboundMapper, never()).insertItem(any(PurchaseInboundItem.class));
         verify(stockService, never()).increase(any(), any(Integer.class), any());
-        verify(stockBatchService, never()).createFromPurchaseInboundItem(any(StockBatchCreateCommand.class));
     }
 
     @Test
@@ -277,7 +270,6 @@ class PurchaseInboundServiceTest {
         verify(purchaseInboundMapper, never()).insertInbound(any(PurchaseInbound.class));
         verify(purchaseInboundMapper, never()).insertItem(any(PurchaseInboundItem.class));
         verify(stockService, never()).increase(any(), any(Integer.class), any());
-        verify(stockBatchService, never()).createFromPurchaseInboundItem(any(StockBatchCreateCommand.class));
     }
 
     @Test
@@ -292,7 +284,6 @@ class PurchaseInboundServiceTest {
         verify(purchaseInboundMapper, never()).insertInbound(any(PurchaseInbound.class));
         verify(purchaseInboundMapper, never()).insertItem(any(PurchaseInboundItem.class));
         verify(stockService, never()).increase(any(), any(Integer.class), any());
-        verify(stockBatchService, never()).createFromPurchaseInboundItem(any(StockBatchCreateCommand.class));
     }
 
     @Test
@@ -451,9 +442,4 @@ class PurchaseInboundServiceTest {
         return vo;
     }
 
-    private StockBatch batch(Long id) {
-        StockBatch batch = new StockBatch();
-        batch.setId(id);
-        return batch;
-    }
 }

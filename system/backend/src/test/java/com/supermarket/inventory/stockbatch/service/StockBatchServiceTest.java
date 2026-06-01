@@ -1,7 +1,9 @@
 package com.supermarket.inventory.stockbatch.service;
 
 import com.supermarket.inventory.common.exception.BusinessException;
-import com.supermarket.inventory.stock.service.StockService;
+import com.supermarket.inventory.stock.domain.StockDomainService;
+import com.supermarket.inventory.stock.entity.Stock;
+import com.supermarket.inventory.stock.mapper.StockMapper;
 import com.supermarket.inventory.stockbatch.dto.StockBatchCreateCommand;
 import com.supermarket.inventory.stockbatch.dto.StockBatchDamageRequest;
 import com.supermarket.inventory.stockbatch.entity.StockBatch;
@@ -20,10 +22,15 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -36,13 +43,13 @@ class StockBatchServiceTest {
     private StockBatchMapper stockBatchMapper;
 
     @Mock
-    private StockService stockService;
+    private StockMapper stockMapper;
 
     private StockBatchService stockBatchService;
 
     @BeforeEach
     void setUp() {
-        stockBatchService = new StockBatchService(stockBatchMapper, stockService);
+        stockBatchService = new StockBatchService(stockBatchMapper, stockMapper, new StockDomainService());
     }
 
     @Test
@@ -196,6 +203,64 @@ class StockBatchServiceTest {
     }
 
     @Test
+    void consumeByFefo_consumesEarliestExpiringBatchesAndUpdatesStatus() {
+        StockBatch earlyBatch = batch(10L, 20L, 5, LocalDate.of(2026, 7, 1));
+        StockBatch laterBatch = batch(11L, 20L, 10, LocalDate.of(2026, 8, 1));
+        when(stockBatchMapper.findConsumableBySkuIdForUpdate(20L))
+                .thenReturn(List.of(earlyBatch, laterBatch));
+        when(stockBatchMapper.updateRemainingQuantityAndStatus(10L, 20L, 0, "DEPLETED")).thenReturn(1);
+        when(stockBatchMapper.updateRemainingQuantityAndStatus(11L, 20L, 7, "AVAILABLE")).thenReturn(1);
+
+        List<StockBatchService.BatchConsumption> consumptions = stockBatchService.consumeByFefo(20L, 8);
+
+        assertThat(consumptions).containsExactly(
+                new StockBatchService.BatchConsumption(10L, 20L, 5, 5, 0),
+                new StockBatchService.BatchConsumption(11L, 20L, 10, 3, 7)
+        );
+        var inOrder = inOrder(stockBatchMapper);
+        inOrder.verify(stockBatchMapper).updateRemainingQuantityAndStatus(10L, 20L, 0, "DEPLETED");
+        inOrder.verify(stockBatchMapper).updateRemainingQuantityAndStatus(11L, 20L, 7, "AVAILABLE");
+    }
+
+    @Test
+    void consumeByFefo_rejectsInsufficientBatchStockWithoutUpdating() {
+        when(stockBatchMapper.findConsumableBySkuIdForUpdate(20L))
+                .thenReturn(List.of(batch(10L, 20L, 2, LocalDate.of(2026, 7, 1))));
+
+        assertThatThrownBy(() -> stockBatchService.consumeByFefo(20L, 3))
+                .isInstanceOf(BusinessException.class);
+
+        verify(stockBatchMapper, never()).updateRemainingQuantityAndStatus(anyLong(), anyLong(), anyInt(), anyString());
+        verify(stockBatchMapper, never()).insertLog(any(StockBatchLog.class));
+    }
+
+    @Test
+    void writeOutboundLogs_writesNegativeBatchLogsForEachConsumption() {
+        List<StockBatchService.BatchConsumption> consumptions = List.of(
+                new StockBatchService.BatchConsumption(10L, 20L, 5, 5, 0),
+                new StockBatchService.BatchConsumption(11L, 20L, 10, 3, 7)
+        );
+
+        stockBatchService.writeOutboundLogs(consumptions, "OUTBOUND_ORDER", 300L);
+
+        ArgumentCaptor<StockBatchLog> logCaptor = ArgumentCaptor.forClass(StockBatchLog.class);
+        verify(stockBatchMapper, times(2)).insertLog(logCaptor.capture());
+        List<StockBatchLog> logs = logCaptor.getAllValues();
+        assertThat(logs.get(0).getStockBatchId()).isEqualTo(10L);
+        assertThat(logs.get(0).getSkuId()).isEqualTo(20L);
+        assertThat(logs.get(0).getChangeType()).isEqualTo("OUTBOUND");
+        assertThat(logs.get(0).getChangeQuantity()).isEqualTo(-5);
+        assertThat(logs.get(0).getBeforeQuantity()).isEqualTo(5);
+        assertThat(logs.get(0).getAfterQuantity()).isEqualTo(0);
+        assertThat(logs.get(0).getSourceType()).isEqualTo("OUTBOUND_ORDER");
+        assertThat(logs.get(0).getSourceId()).isEqualTo(300L);
+        assertThat(logs.get(1).getStockBatchId()).isEqualTo(11L);
+        assertThat(logs.get(1).getChangeQuantity()).isEqualTo(-3);
+        assertThat(logs.get(1).getBeforeQuantity()).isEqualTo(10);
+        assertThat(logs.get(1).getAfterQuantity()).isEqualTo(7);
+    }
+
+    @Test
     void listBySkuId_delegatesToMapper() {
         StockBatchVO batch = new StockBatchVO();
         batch.setId(10L);
@@ -211,6 +276,7 @@ class StockBatchServiceTest {
     void lock_changesAvailableBatchToLockedAndWritesStatusLog() {
         StockBatch batch = batch("AVAILABLE", 48);
         when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(java.util.Optional.of(batch));
+        when(stockBatchMapper.updateStatus(10L, 20L, "LOCKED")).thenReturn(1);
 
         stockBatchService.lock(20L, 10L);
 
@@ -223,6 +289,7 @@ class StockBatchServiceTest {
     void lock_changesExpiredBatchToLockedAndWritesStatusLog() {
         StockBatch batch = batch("EXPIRED", 48);
         when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(java.util.Optional.of(batch));
+        when(stockBatchMapper.updateStatus(10L, 20L, "LOCKED")).thenReturn(1);
 
         stockBatchService.lock(20L, 10L);
 
@@ -248,6 +315,7 @@ class StockBatchServiceTest {
         StockBatch batch = batch("LOCKED", 48);
         batch.setExpireDate(LocalDate.now().plusDays(1));
         when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(java.util.Optional.of(batch));
+        when(stockBatchMapper.updateStatus(10L, 20L, "AVAILABLE")).thenReturn(1);
 
         stockBatchService.unlock(20L, 10L);
 
@@ -264,6 +332,7 @@ class StockBatchServiceTest {
         StockBatch batch = batch("LOCKED", 48);
         batch.setExpireDate(LocalDate.now().minusDays(1));
         when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(java.util.Optional.of(batch));
+        when(stockBatchMapper.updateStatus(10L, 20L, "EXPIRED")).thenReturn(1);
 
         stockBatchService.unlock(20L, 10L);
 
@@ -277,6 +346,7 @@ class StockBatchServiceTest {
         StockBatch batch = batch("LOCKED", 0);
         batch.setExpireDate(LocalDate.now().minusDays(1));
         when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(java.util.Optional.of(batch));
+        when(stockBatchMapper.updateStatus(10L, 20L, "AVAILABLE")).thenReturn(1);
 
         stockBatchService.unlock(20L, 10L);
 
@@ -291,11 +361,13 @@ class StockBatchServiceTest {
     void damage_partiallyDamagesLockedBatchKeepsLockedStatusAndWritesDamageLog() {
         StockBatch batch = batch("LOCKED", 48);
         when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(java.util.Optional.of(batch));
+        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(java.util.Optional.of(stock(20L, 60)));
         when(stockBatchMapper.updateRemainingQuantityAndStatus(10L, 20L, 43, "LOCKED")).thenReturn(1);
 
         stockBatchService.damage(20L, 10L, damageRequest(5, "破损", "外包装破损 "));
 
-        verify(stockService).damage(20L, 5);
+        verify(stockMapper).updateQuantity(20L, 55);
+        verify(stockMapper).insertLog(20L, "DAMAGE", -5, 60, 55);
         verify(stockBatchMapper).updateRemainingQuantityAndStatus(10L, 20L, 43, "LOCKED");
         StockBatchLog log = captureLog();
         assertThat(log.getStockBatchId()).isEqualTo(10L);
@@ -314,50 +386,88 @@ class StockBatchServiceTest {
     void damage_fullyDamagesBatchAndSetsDamaged() {
         StockBatch batch = batch("AVAILABLE", 48);
         when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(java.util.Optional.of(batch));
+        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(java.util.Optional.of(stock(20L, 60)));
         when(stockBatchMapper.updateRemainingQuantityAndStatus(10L, 20L, 0, "DAMAGED")).thenReturn(1);
 
         stockBatchService.damage(20L, 10L, damageRequest(48, "过期", null));
 
-        verify(stockService).damage(20L, 48);
+        verify(stockMapper).updateQuantity(20L, 12);
+        verify(stockMapper).insertLog(20L, "DAMAGE", -48, 60, 12);
         verify(stockBatchMapper).updateRemainingQuantityAndStatus(10L, 20L, 0, "DAMAGED");
     }
 
     @Test
     void damage_rejectsIllegalStatuses() {
         for (String status : List.of("DEPLETED", "DAMAGED", "CLOSED")) {
+            org.mockito.Mockito.reset(stockBatchMapper, stockMapper);
             StockBatch batch = batch(status, 48);
+            when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(Optional.of(stock(20L, 60)));
             when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(java.util.Optional.of(batch));
 
             assertThatThrownBy(() -> stockBatchService.damage(20L, 10L, damageRequest(1, "破损", null)))
                     .isInstanceOf(BusinessException.class);
         }
 
-        verify(stockService, never()).damage(any(), any(Integer.class));
-        verify(stockBatchMapper, never()).updateRemainingQuantityAndStatus(any(), any(), any(Integer.class), any());
+        verify(stockMapper, never()).updateQuantity(anyLong(), anyInt());
+        verify(stockMapper, never()).insertLog(anyLong(), anyString(), anyInt(), anyInt(), anyInt());
+        verify(stockBatchMapper, never()).updateRemainingQuantityAndStatus(anyLong(), anyLong(), anyInt(), anyString());
+    }
+
+    @Test
+    void damage_rejectsMissingStockWithoutLockingBatch() {
+        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> stockBatchService.damage(20L, 10L, damageRequest(1, "破损", null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("库存记录不存在");
+
+        verify(stockBatchMapper, never()).findByIdAndSkuIdForUpdate(anyLong(), anyLong());
+        verify(stockMapper, never()).updateQuantity(anyLong(), anyInt());
+        verify(stockMapper, never()).insertLog(anyLong(), anyString(), anyInt(), anyInt(), anyInt());
+    }
+
+    @Test
+    void damage_rejectsInsufficientStockBeforeUpdatingBatch() {
+        StockBatch batch = batch("AVAILABLE", 48);
+        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(Optional.of(stock(20L, 3)));
+        when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(Optional.of(batch));
+
+        assertThatThrownBy(() -> stockBatchService.damage(20L, 10L, damageRequest(5, "破损", null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("库存不足，无法出库");
+
+        verify(stockMapper, never()).updateQuantity(anyLong(), anyInt());
+        verify(stockMapper, never()).insertLog(anyLong(), anyString(), anyInt(), anyInt(), anyInt());
+        verify(stockBatchMapper, never()).updateRemainingQuantityAndStatus(anyLong(), anyLong(), anyInt(), anyString());
+        verify(stockBatchMapper, never()).insertLog(any());
     }
 
     @Test
     void damage_rejectsBatchUpdateMissAndDoesNotWriteBatchLog() {
         StockBatch batch = batch("AVAILABLE", 48);
         when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(java.util.Optional.of(batch));
+        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(java.util.Optional.of(stock(20L, 60)));
         when(stockBatchMapper.updateRemainingQuantityAndStatus(10L, 20L, 43, "AVAILABLE")).thenReturn(0);
 
-        assertThatThrownBy(() -> stockBatchService.damage(20L, 10L, damageRequest(5, "鐮存崯", null)))
+        assertThatThrownBy(() -> stockBatchService.damage(20L, 10L, damageRequest(5, "破损", null)))
                 .isInstanceOf(BusinessException.class);
 
-        verify(stockService).damage(20L, 5);
+        verify(stockMapper).updateQuantity(20L, 55);
+        verify(stockMapper).insertLog(20L, "DAMAGE", -5, 60, 55);
         verify(stockBatchMapper, never()).insertLog(any());
     }
 
     @Test
     void damage_rejectsQuantityGreaterThanRemaining() {
         StockBatch batch = batch("AVAILABLE", 3);
+        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(java.util.Optional.of(stock(20L, 60)));
         when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(java.util.Optional.of(batch));
 
         assertThatThrownBy(() -> stockBatchService.damage(20L, 10L, damageRequest(4, "破损", null)))
                 .isInstanceOf(BusinessException.class);
 
-        verify(stockService, never()).damage(any(), any(Integer.class));
+        verify(stockMapper, never()).updateQuantity(anyLong(), anyInt());
+        verify(stockMapper, never()).insertLog(anyLong(), anyString(), anyInt(), anyInt(), anyInt());
     }
 
     @Test
@@ -389,6 +499,7 @@ class StockBatchServiceTest {
             org.mockito.Mockito.reset(stockBatchMapper);
             StockBatch batch = batch(status, 0);
             when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(java.util.Optional.of(batch));
+            when(stockBatchMapper.updateStatus(10L, 20L, "CLOSED")).thenReturn(1);
 
             stockBatchService.close(20L, 10L);
 
@@ -406,6 +517,8 @@ class StockBatchServiceTest {
         StockBatch second = batch("AVAILABLE", 8);
         second.setId(11L);
         when(stockBatchMapper.findExpiredAvailableBatchesForUpdate(today)).thenReturn(List.of(first, second));
+        when(stockBatchMapper.updateStatus(10L, 20L, "EXPIRED")).thenReturn(1);
+        when(stockBatchMapper.updateStatus(11L, 20L, "EXPIRED")).thenReturn(1);
 
         int result = stockBatchService.markExpiredBatches(today);
 
@@ -417,20 +530,20 @@ class StockBatchServiceTest {
         assertThat(logCaptor.getAllValues())
                 .extracting(StockBatchLog::getSourceType)
                 .containsExactly("BATCH_EXPIRE_SCAN", "BATCH_EXPIRE_SCAN");
-        verify(stockService, never()).damage(any(), any(Integer.class));
     }
 
     @Test
-    void consumeAvailableBatches_consumesInMapperFefoOrderAndWritesOutboundLogs() {
+    void consumeByFefoAndWriteOutboundLogs_consumesInMapperFefoOrderAndWritesOutboundLogs() {
         StockBatch first = batch("AVAILABLE", 5);
         first.setId(10L);
         StockBatch second = batch("AVAILABLE", 8);
         second.setId(11L);
-        when(stockBatchMapper.findAvailableBatchesForConsumption(20L)).thenReturn(List.of(first, second));
+        when(stockBatchMapper.findConsumableBySkuIdForUpdate(20L)).thenReturn(List.of(first, second));
         when(stockBatchMapper.updateRemainingQuantityAndStatus(10L, 20L, 0, "DEPLETED")).thenReturn(1);
         when(stockBatchMapper.updateRemainingQuantityAndStatus(11L, 20L, 3, "AVAILABLE")).thenReturn(1);
 
-        stockBatchService.consumeAvailableBatches(20L, 10, "OUTBOUND_ORDER", 99L);
+        List<StockBatchService.BatchConsumption> consumptions = stockBatchService.consumeByFefo(20L, 10);
+        stockBatchService.writeOutboundLogs(consumptions, "OUTBOUND_ORDER", 99L);
 
         verify(stockBatchMapper).updateRemainingQuantityAndStatus(10L, 20L, 0, "DEPLETED");
         verify(stockBatchMapper).updateRemainingQuantityAndStatus(11L, 20L, 3, "AVAILABLE");
@@ -453,26 +566,26 @@ class StockBatchServiceTest {
     }
 
     @Test
-    void consumeAvailableBatches_rejectsWhenAvailableBatchesAreInsufficient() {
+    void consumeByFefo_rejectsWhenAvailableBatchesAreInsufficient() {
         StockBatch first = batch("AVAILABLE", 5);
         first.setId(10L);
-        when(stockBatchMapper.findAvailableBatchesForConsumption(20L)).thenReturn(List.of(first));
+        when(stockBatchMapper.findConsumableBySkuIdForUpdate(20L)).thenReturn(List.of(first));
 
-        assertThatThrownBy(() -> stockBatchService.consumeAvailableBatches(20L, 10, "OUTBOUND_ORDER", 99L))
+        assertThatThrownBy(() -> stockBatchService.consumeByFefo(20L, 10))
                 .isInstanceOf(BusinessException.class);
 
-        verify(stockBatchMapper, never()).updateRemainingQuantityAndStatus(any(), any(), any(Integer.class), any());
+        verify(stockBatchMapper, never()).updateRemainingQuantityAndStatus(anyLong(), anyLong(), anyInt(), anyString());
         verify(stockBatchMapper, never()).insertLog(any());
     }
 
     @Test
-    void consumeAvailableBatches_rejectsBatchUpdateMissAndStopsLogging() {
+    void consumeByFefo_rejectsBatchUpdateMissAndStopsLogging() {
         StockBatch first = batch("AVAILABLE", 5);
         first.setId(10L);
-        when(stockBatchMapper.findAvailableBatchesForConsumption(20L)).thenReturn(List.of(first));
+        when(stockBatchMapper.findConsumableBySkuIdForUpdate(20L)).thenReturn(List.of(first));
         when(stockBatchMapper.updateRemainingQuantityAndStatus(10L, 20L, 0, "DEPLETED")).thenReturn(0);
 
-        assertThatThrownBy(() -> stockBatchService.consumeAvailableBatches(20L, 5, "OUTBOUND_ORDER", 99L))
+        assertThatThrownBy(() -> stockBatchService.consumeByFefo(20L, 5))
                 .isInstanceOf(BusinessException.class);
 
         verify(stockBatchMapper, never()).insertLog(any());
@@ -538,5 +651,25 @@ class StockBatchServiceTest {
         assertThat(log.getAfterQuantity()).isEqualTo(quantity);
         assertThat(log.getSourceType()).isEqualTo(sourceType);
         assertThat(log.getSourceId()).isEqualTo(10L);
+    }
+
+    private StockBatch batch(Long id, Long skuId, int quantity, LocalDate expireDate) {
+        StockBatch batch = new StockBatch();
+        batch.setId(id);
+        batch.setSkuId(skuId);
+        batch.setStatus("AVAILABLE");
+        batch.setQuantity(quantity);
+        batch.setExpireDate(expireDate);
+        return batch;
+    }
+
+    private Stock stock(Long skuId, int quantity) {
+        Stock stock = new Stock();
+        stock.setId(30L);
+        stock.setSkuId(skuId);
+        stock.setQuantity(quantity);
+        stock.setMinStock(0);
+        stock.setMaxStock(100);
+        return stock;
     }
 }

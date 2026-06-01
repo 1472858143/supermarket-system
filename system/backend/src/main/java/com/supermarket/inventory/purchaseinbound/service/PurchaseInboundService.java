@@ -11,10 +11,8 @@ import com.supermarket.inventory.purchaseinbound.entity.PurchaseInboundItem;
 import com.supermarket.inventory.purchaseinbound.mapper.PurchaseInboundMapper;
 import com.supermarket.inventory.purchaseinbound.vo.PurchaseInboundVO;
 import com.supermarket.inventory.sku.service.SkuUnitResolver;
+import com.supermarket.inventory.stock.dto.StockIncreaseCommand;
 import com.supermarket.inventory.stock.service.StockService;
-import com.supermarket.inventory.stockbatch.dto.StockBatchCreateCommand;
-import com.supermarket.inventory.stockbatch.entity.StockBatch;
-import com.supermarket.inventory.stockbatch.service.StockBatchService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,25 +28,22 @@ import java.util.List;
 public class PurchaseInboundService {
 
     private static final String STATUS_COMPLETED = "COMPLETED";
-    private static final String STOCK_CHANGE_TYPE = "PURCHASE_INBOUND";
+    private static final String STOCK_SOURCE_TYPE = "PURCHASE_INBOUND_ITEM";
     private static final BigDecimal MAX_PURCHASE_PRICE = new BigDecimal("100000000.00");
     private static final BigDecimal MAX_AMOUNT = new BigDecimal("10000000000.00");
 
     private final PurchaseInboundMapper purchaseInboundMapper;
     private final SkuUnitResolver skuUnitResolver;
     private final StockService stockService;
-    private final StockBatchService stockBatchService;
 
     public PurchaseInboundService(
             PurchaseInboundMapper purchaseInboundMapper,
             SkuUnitResolver skuUnitResolver,
-            StockService stockService,
-            StockBatchService stockBatchService
+            StockService stockService
     ) {
         this.purchaseInboundMapper = purchaseInboundMapper;
         this.skuUnitResolver = skuUnitResolver;
         this.stockService = stockService;
-        this.stockBatchService = stockBatchService;
     }
 
     public PageResult<PurchaseInboundVO> list(String keyword, Integer page, Integer pageSize) {
@@ -99,7 +94,11 @@ public class PurchaseInboundService {
             item.setPurchasePrice(purchasePrice);
             item.setCostPrice(costPrice);
             item.setAmount(amount);
-            items.add(new PreparedInboundItem(item, requestItem.getProductionDate(), requestItem.getShelfLifeDays()));
+            items.add(new PreparedInboundItem(
+                    item,
+                    requestItem.getProductionDate(),
+                    requestItem.getProductionDate().plusDays(requestItem.getShelfLifeDays())
+            ));
 
             totalQuantity = addBaseQuantity(totalQuantity, baseQuantity);
             totalAmount = totalAmount.add(amount);
@@ -125,13 +124,12 @@ public class PurchaseInboundService {
             item.setPurchaseInboundId(inboundId);
             Long itemId = purchaseInboundMapper.insertItem(item);
             item.setId(itemId);
-            StockBatch batch = stockBatchService.createFromPurchaseInboundItem(toStockBatchCreateCommand(
+            stockService.increase(toStockIncreaseCommand(
+                    inboundId,
                     item,
                     preparedItem.productionDate(),
-                    preparedItem.shelfLifeDays()
+                    preparedItem.expiryDate()
             ));
-            stockService.increase(item.getSkuId(), item.getBaseQuantity(), STOCK_CHANGE_TYPE);
-            stockBatchService.writePurchaseInboundLog(batch);
         }
         return purchaseInboundMapper.findById(inboundId)
                 .orElseThrow(() -> new BusinessException(404, "采购入库单不存在"));
@@ -146,22 +144,26 @@ public class PurchaseInboundService {
         }
     }
 
-    private StockBatchCreateCommand toStockBatchCreateCommand(
+    private StockIncreaseCommand toStockIncreaseCommand(
+            Long inboundId,
             PurchaseInboundItem item,
             LocalDate productionDate,
-            Integer shelfLifeDays
+            LocalDate expiryDate
     ) {
-        StockBatchCreateCommand command = new StockBatchCreateCommand();
+        StockIncreaseCommand command = new StockIncreaseCommand();
         command.setSkuId(item.getSkuId());
-        command.setPurchaseInboundItemId(item.getId());
-        command.setBaseQuantity(item.getBaseQuantity());
+        command.setQuantity(item.getBaseQuantity());
         command.setPurchasePrice(item.getPurchasePrice());
         command.setProductionDate(productionDate);
-        command.setShelfLifeDays(shelfLifeDays);
+        command.setExpiryDate(expiryDate);
+        command.setPurchaseInboundId(inboundId);
+        command.setPurchaseInboundItemId(item.getId());
+        command.setSourceType(STOCK_SOURCE_TYPE);
+        command.setSourceId(item.getId());
         return command;
     }
 
-    private record PreparedInboundItem(PurchaseInboundItem item, LocalDate productionDate, Integer shelfLifeDays) {
+    private record PreparedInboundItem(PurchaseInboundItem item, LocalDate productionDate, LocalDate expiryDate) {
     }
 
     private int calculateBaseQuantity(int quantity, int conversionRate) {

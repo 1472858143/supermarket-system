@@ -183,6 +183,10 @@ public class StockBatchMapper {
         );
     }
 
+    public List<StockBatch> findConsumableBySkuIdForUpdate(Long skuId) {
+        return findAvailableBatchesForConsumption(skuId);
+    }
+
     public int updateRemainingQuantityAndStatus(Long batchId, Long skuId, int quantity, String status) {
         return jdbcTemplate.update(
                 "update stock_batch set quantity = ?, status = ? where id = ? and sku_id = ?",
