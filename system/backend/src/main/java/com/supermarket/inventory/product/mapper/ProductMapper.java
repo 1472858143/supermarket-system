@@ -24,6 +24,7 @@ public class ProductMapper {
         product.setProductCode(rs.getString("product_code"));
         product.setProductName(rs.getString("product_name"));
         product.setCategoryId(rs.getLong("category_id"));
+        product.setBrandId(rs.getLong("brand_id"));
         product.setStatus(rs.getInt("status"));
         product.setCreateTime(rs.getTimestamp("create_time").toLocalDateTime());
         return product;
@@ -33,38 +34,37 @@ public class ProductMapper {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public long count(String keyword) {
+    public long count(String keyword, Long brandId) {
         String like = "%" + (keyword == null ? "" : keyword.trim()) + "%";
-        return jdbcTemplate.queryForObject(
-                """
+        String brandFilter = brandId == null ? "" : " and p.brand_id = ?";
+        String sql = """
                 select count(*) from product p
                 left join category c on c.id = p.category_id
-                where p.product_code like ? or p.product_name like ? or c.name like ?
-                """,
-                Long.class,
-                like,
-                like,
-                like
-        );
+                left join brand b on b.id = p.brand_id
+                where (p.product_code like ? or p.product_name like ? or c.name like ? or b.brand_code like ? or b.brand_name like ?)
+                """ + brandFilter;
+        Long count = brandId == null
+                ? jdbcTemplate.queryForObject(sql, Long.class, like, like, like, like, like)
+                : jdbcTemplate.queryForObject(sql, Long.class, like, like, like, like, like, brandId);
+        return count == null ? 0L : count;
     }
 
-    public List<Product> findPage(String keyword, int offset, int pageSize) {
+    public List<Product> findPage(String keyword, Long brandId, int offset, int pageSize) {
         String like = "%" + (keyword == null ? "" : keyword.trim()) + "%";
-        return jdbcTemplate.query(
-                """
+        String brandFilter = brandId == null ? "" : " and p.brand_id = ?";
+        String sql = """
                 select p.* from product p
                 left join category c on c.id = p.category_id
-                where p.product_code like ? or p.product_name like ? or c.name like ?
+                left join brand b on b.id = p.brand_id
+                where (p.product_code like ? or p.product_name like ? or c.name like ? or b.brand_code like ? or b.brand_name like ?)
+                """ + brandFilter + """
                 order by p.id desc
                 limit ? offset ?
-                """,
-                productRowMapper,
-                like,
-                like,
-                like,
-                pageSize,
-                offset
-        );
+                """;
+        if (brandId == null) {
+            return jdbcTemplate.query(sql, productRowMapper, like, like, like, like, like, pageSize, offset);
+        }
+        return jdbcTemplate.query(sql, productRowMapper, like, like, like, like, like, brandId, pageSize, offset);
     }
 
     public Optional<Product> findById(Long id) {
@@ -92,15 +92,16 @@ public class ProductMapper {
         jdbcTemplate.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(
                     """
-                    insert into product(product_code, product_name, category_id, status)
-                    values (?, ?, ?, ?)
+                    insert into product(product_code, product_name, category_id, brand_id, status)
+                    values (?, ?, ?, ?, ?)
                     """,
                     Statement.RETURN_GENERATED_KEYS
             );
             ps.setString(1, product.getProductCode());
             ps.setString(2, product.getProductName());
             ps.setLong(3, product.getCategoryId());
-            ps.setInt(4, product.getStatus());
+            ps.setLong(4, product.getBrandId());
+            ps.setInt(5, product.getStatus());
             return ps;
         }, keyHolder);
         Number key = keyHolder.getKey();
@@ -111,11 +112,12 @@ public class ProductMapper {
         jdbcTemplate.update(
                 """
                 update product
-                set product_name = ?, category_id = ?, status = ?
+                set product_name = ?, category_id = ?, brand_id = ?, status = ?
                 where id = ?
                 """,
                 product.getProductName(),
                 product.getCategoryId(),
+                product.getBrandId(),
                 product.getStatus(),
                 product.getId()
         );

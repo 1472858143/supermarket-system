@@ -1,11 +1,11 @@
-package com.supermarket.inventory.product.controller;
+package com.supermarket.inventory.brand.controller;
 
 import com.supermarket.inventory.auth.security.RequireRoles;
+import com.supermarket.inventory.brand.dto.BrandRequest;
+import com.supermarket.inventory.brand.service.BrandService;
+import com.supermarket.inventory.brand.vo.BrandVO;
 import com.supermarket.inventory.common.response.ApiResponse;
 import com.supermarket.inventory.common.response.PageResult;
-import com.supermarket.inventory.product.dto.ProductRequest;
-import com.supermarket.inventory.product.service.ProductService;
-import com.supermarket.inventory.product.vo.ProductVO;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,42 +17,49 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
-@RequestMapping("/api/products")
-public class ProductController {
+@RequestMapping("/api/brands")
+public class BrandController {
 
-    private final ProductService productService;
+    private final BrandService brandService;
 
-    public ProductController(ProductService productService) {
-        this.productService = productService;
+    public BrandController(BrandService brandService) {
+        this.brandService = brandService;
     }
 
     @GetMapping
-    public ApiResponse<PageResult<ProductVO>> list(
+    public ApiResponse<PageResult<BrandVO>> list(
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) Long brandId,
+            @RequestParam(required = false) Integer status,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer pageSize
     ) {
-        return ApiResponse.success(productService.list(keyword, brandId, page, pageSize));
+        return ApiResponse.success(brandService.list(keyword, status, page, pageSize));
+    }
+
+    @GetMapping("/options")
+    public ApiResponse<List<BrandVO>> options() {
+        return ApiResponse.success(brandService.options());
     }
 
     @PostMapping
     @RequireRoles("ADMIN")
-    public ApiResponse<ProductVO> create(@Valid @RequestBody ProductRequest request) {
-        return ApiResponse.success(productService.create(request));
+    public ApiResponse<BrandVO> create(@Valid @RequestBody BrandRequest request) {
+        return ApiResponse.success(brandService.create(request));
     }
 
     @PutMapping("/{id}")
     @RequireRoles("ADMIN")
-    public ApiResponse<ProductVO> update(@PathVariable Long id, @Valid @RequestBody ProductRequest request) {
-        return ApiResponse.success(productService.update(id, request));
+    public ApiResponse<BrandVO> update(@PathVariable Long id, @Valid @RequestBody BrandRequest request) {
+        return ApiResponse.success(brandService.update(id, request));
     }
 
     @DeleteMapping("/{id}")
     @RequireRoles("ADMIN")
     public ApiResponse<Void> delete(@PathVariable Long id) {
-        productService.delete(id);
+        brandService.delete(id);
         return ApiResponse.success();
     }
 }

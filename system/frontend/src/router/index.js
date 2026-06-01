@@ -6,6 +6,7 @@ import LoginView from '../views/login/LoginView.vue'
 import DashboardView from '../views/dashboard/DashboardView.vue'
 import UsersView from '../views/user/UsersView.vue'
 import ProductsView from '../views/product/ProductsView.vue'
+import BrandsView from '../views/brand/BrandsView.vue'
 import StocksView from '../views/stock/StocksView.vue'
 import PurchaseInboundsView from '../views/purchaseinbound/PurchaseInboundsView.vue'
 import InboundsView from '../views/inbound/InboundsView.vue'
@@ -19,6 +20,7 @@ export const menuRoutes = [
   { path: '/dashboard', name: 'Dashboard', component: DashboardView, meta: { title: '首页概览', roles: ['ADMIN', 'USER'], icon: '□' } },
   { path: '/users', name: 'UserManage', component: UsersView, meta: { title: '用户管理', roles: ['ADMIN'], icon: 'U' } },
   { path: '/products', name: 'ProductManage', component: ProductsView, meta: { title: '商品管理', roles: ['ADMIN', 'USER'], icon: 'P' } },
+  { path: '/brands', name: 'BrandManage', component: BrandsView, meta: { title: '品牌管理', roles: ['ADMIN', 'USER'], icon: 'B' } },
   { path: '/categories', name: 'CategoryManage', component: CategoryView, meta: { title: '分类管理', roles: ['ADMIN', 'USER'], icon: 'G' } },
   { path: '/stocks', name: 'StockManage', component: StocksView, meta: { title: '库存管理', roles: ['ADMIN', 'USER'], icon: 'S' } },
   { path: '/purchase-inbounds', name: 'PurchaseInboundManage', component: PurchaseInboundsView, meta: { title: '采购入库', roles: ['ADMIN', 'USER'], icon: '$' } },

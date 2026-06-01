@@ -14,6 +14,9 @@ public class ProductRequest {
     @NotNull(message = "商品分类不能为空")
     private Long categoryId;
 
+    @NotNull(message = "商品品牌不能为空")
+    private Long brandId;
+
     private Integer status = 1;
 
     public String getProductCode() {
@@ -38,6 +41,14 @@ public class ProductRequest {
 
     public void setCategoryId(Long categoryId) {
         this.categoryId = categoryId;
+    }
+
+    public Long getBrandId() {
+        return brandId;
+    }
+
+    public void setBrandId(Long brandId) {
+        this.brandId = brandId;
     }
 
     public Integer getStatus() {

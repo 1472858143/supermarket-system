@@ -9,6 +9,12 @@
     <div v-if="message" class="message" :class="messageType === 'error' ? 'message-error' : 'message-success'">{{ message }}</div>
     <section class="card">
       <PageToolbar v-model:keyword="query.keyword" placeholder="商品编号、名称或分类" @search="reload" @reset="resetQuery">
+        <select v-model="query.brandId" class="select" @change="reload">
+          <option value="">全部品牌</option>
+          <option v-for="brand in brandOptions" :key="brand.id" :value="String(brand.id)">
+            {{ brand.brandName }}
+          </option>
+        </select>
         <PermissionButton :roles="['ADMIN']" button-class="btn-primary" icon="+" @click="openCreate">新增商品</PermissionButton>
       </PageToolbar>
       <BaseTable :columns="columns" :items="items" :total="total" :page="query.page" :page-size="query.pageSize" :loading="loading" :show-actions="canManageProducts" empty-text="暂无商品记录" @page-change="changePage">
@@ -35,6 +41,15 @@
           <input v-model.trim="form.productName" class="input" />
         </label>
         <CategoryCascader v-model="form.categoryId" :tree="categoryTree" />
+        <label class="form-item">
+          <span class="form-label">品牌</span>
+          <select v-model.number="form.brandId" class="select">
+            <option :value="null">请选择品牌</option>
+            <option v-for="brand in brandOptions" :key="brand.id" :value="brand.id">
+              {{ brand.brandName }}
+            </option>
+          </select>
+        </label>
         <label class="form-item">
           <span class="form-label">状态</span>
           <select v-model.number="form.status" class="select">
@@ -185,12 +200,14 @@ import CategoryCascader from '../../components/CategoryCascader.vue'
 import { createProduct, deleteProduct, listProducts, updateProduct } from '../../api/product'
 import { createSku, createUnit, deleteSku, deleteUnit, listSkus, updateSku, updateUnit } from '../../api/sku'
 import { getCategoryTree } from '../../api/category'
+import { listBrandOptions } from '../../api/brand'
 import { useAuthStore } from '../../stores/auth'
 
 const columns = [
   { key: 'productCode', title: '商品编号' },
   { key: 'productName', title: '商品名称' },
   { key: 'categoryName', title: '分类' },
+  { key: 'brandName', title: '品牌' },
   { key: 'status', title: '状态' },
   { key: 'createTime', title: '创建时间' }
 ]
@@ -209,7 +226,7 @@ const unitColumns = [
   { key: 'unitName', title: '单位名称' },
   { key: 'conversionRate', title: '换算关系' }
 ]
-const query = reactive({ keyword: '', page: 1, pageSize: 10 })
+const query = reactive({ keyword: '', brandId: '', page: 1, pageSize: 10 })
 const items = ref([])
 const total = ref(0)
 const loading = ref(false)
@@ -218,7 +235,7 @@ const dialogVisible = ref(false)
 const editingId = ref(null)
 const message = ref('')
 const messageType = ref('success')
-const form = reactive({ productCode: '', productName: '', categoryId: null, status: 1 })
+const form = reactive({ productCode: '', productName: '', categoryId: null, brandId: null, status: 1 })
 const skuDialogVisible = ref(false)
 const skuFormVisible = ref(false)
 const unitFormVisible = ref(false)
@@ -233,6 +250,7 @@ const editingUnitId = ref(null)
 const skuForm = reactive({ skuName: '', spec: '', barcode: '', baseUnit: '个', purchasePrice: 0, salePrice: 0, status: 1 })
 const unitForm = reactive({ unitName: '', conversionRate: 1 })
 const categoryTree = ref([])
+const brandOptions = ref([])
 const authStore = useAuthStore()
 const canManageProducts = computed(() => authStore.hasRole('ADMIN'))
 
@@ -255,9 +273,9 @@ async function loadData() {
 }
 
 function reload() { query.page = 1; loadData() }
-function resetQuery() { query.keyword = ''; reload() }
+function resetQuery() { query.keyword = ''; query.brandId = ''; reload() }
 function changePage(page) { query.page = page; loadData() }
-function resetForm() { Object.assign(form, { productCode: '', productName: '', categoryId: null, status: 1 }); editingId.value = null }
+function resetForm() { Object.assign(form, { productCode: '', productName: '', categoryId: null, brandId: null, status: 1 }); editingId.value = null }
 function openCreate() { resetForm(); dialogVisible.value = true }
 function openEdit(item) {
   editingId.value = item.id
@@ -265,6 +283,7 @@ function openEdit(item) {
     productCode: item.productCode,
     productName: item.productName,
     categoryId: item.categoryId,
+    brandId: item.brandId,
     status: item.status
   })
   dialogVisible.value = true
@@ -336,8 +355,8 @@ function openUnitEdit(item) {
 }
 
 async function submit() {
-  if (!form.productCode || !form.productName || !form.categoryId) {
-    showMessage('请填写商品编号、名称和分类', 'error')
+  if (!form.productCode || !form.productName || !form.categoryId || !form.brandId) {
+    showMessage('请填写商品编号、名称、分类和品牌', 'error')
     return
   }
   submitting.value = true
@@ -463,8 +482,17 @@ async function loadCategories() {
   }
 }
 
+async function loadBrands() {
+  try {
+    brandOptions.value = await listBrandOptions()
+  } catch (error) {
+    showMessage('加载品牌失败', 'error')
+  }
+}
+
 onMounted(() => {
   loadData()
   loadCategories()
+  loadBrands()
 })
 </script>

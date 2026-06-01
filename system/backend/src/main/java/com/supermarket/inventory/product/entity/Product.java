@@ -8,6 +8,7 @@ public class Product {
     private String productCode;
     private String productName;
     private Long categoryId;
+    private Long brandId;
     private Integer status;
     private LocalDateTime createTime;
 
@@ -41,6 +42,14 @@ public class Product {
 
     public void setCategoryId(Long categoryId) {
         this.categoryId = categoryId;
+    }
+
+    public Long getBrandId() {
+        return brandId;
+    }
+
+    public void setBrandId(Long brandId) {
+        this.brandId = brandId;
     }
 
     public Integer getStatus() {

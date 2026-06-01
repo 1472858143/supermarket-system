@@ -38,16 +38,31 @@ CREATE TABLE category (
                           UNIQUE KEY uk_parent_name (parent_id, name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商品分类表';
 
+CREATE TABLE brand (
+                       id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                       brand_code VARCHAR(50) NOT NULL COMMENT '品牌编码',
+                       brand_name VARCHAR(100) NOT NULL COMMENT '品牌名称',
+                       status TINYINT NOT NULL DEFAULT 1 COMMENT '0-禁用 1-启用',
+                       remark VARCHAR(200) DEFAULT NULL COMMENT '备注',
+                       create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                       UNIQUE KEY uk_brand_code (brand_code),
+                       UNIQUE KEY uk_brand_name (brand_name),
+                       CHECK (status IN (0, 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='品牌表';
 CREATE TABLE product (
                          id BIGINT PRIMARY KEY AUTO_INCREMENT,
                          product_code VARCHAR(50) NOT NULL,
                          product_name VARCHAR(100) NOT NULL,
                          category_id BIGINT NOT NULL COMMENT '分类ID，关联category表',
+                         brand_id BIGINT NOT NULL COMMENT '品牌ID，关联brand表',
                          status TINYINT NOT NULL DEFAULT 1 COMMENT '0-下架 1-上架',
                          create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                          UNIQUE KEY uk_product_code (product_code),
+                         KEY idx_product_brand (brand_id),
                          CONSTRAINT fk_product_category
-                             FOREIGN KEY (category_id) REFERENCES category(id)
+                             FOREIGN KEY (category_id) REFERENCES category(id),
+                         CONSTRAINT fk_product_brand
+                             FOREIGN KEY (brand_id) REFERENCES brand(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE user_role (

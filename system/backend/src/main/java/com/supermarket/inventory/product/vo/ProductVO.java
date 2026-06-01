@@ -12,6 +12,9 @@ public class ProductVO {
     private String productName;
     private Long categoryId;
     private String categoryName;
+    private Long brandId;
+    private String brandCode;
+    private String brandName;
     private List<SkuVO> skus;
     private Integer status;
     private LocalDateTime createTime;
@@ -54,6 +57,30 @@ public class ProductVO {
 
     public void setCategoryName(String categoryName) {
         this.categoryName = categoryName;
+    }
+
+    public Long getBrandId() {
+        return brandId;
+    }
+
+    public void setBrandId(Long brandId) {
+        this.brandId = brandId;
+    }
+
+    public String getBrandCode() {
+        return brandCode;
+    }
+
+    public void setBrandCode(String brandCode) {
+        this.brandCode = brandCode;
+    }
+
+    public String getBrandName() {
+        return brandName;
+    }
+
+    public void setBrandName(String brandName) {
+        this.brandName = brandName;
     }
 
     public Integer getStatus() {
