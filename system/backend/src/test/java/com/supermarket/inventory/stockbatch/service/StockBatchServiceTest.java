@@ -103,6 +103,72 @@ class StockBatchServiceTest {
     }
 
     @Test
+    void createFromPurchaseInboundItem_rejectsInvalidCommandFields() {
+        assertInvalidCommand(null, "库存批次创建参数不能为空");
+
+        StockBatchCreateCommand missingSkuId = command();
+        missingSkuId.setSkuId(null);
+        assertInvalidCommand(missingSkuId, "SKU ID不能为空");
+
+        StockBatchCreateCommand missingPurchaseInboundItemId = command();
+        missingPurchaseInboundItemId.setPurchaseInboundItemId(null);
+        assertInvalidCommand(missingPurchaseInboundItemId, "采购入库明细ID不能为空");
+
+        StockBatchCreateCommand missingBaseQuantity = command();
+        missingBaseQuantity.setBaseQuantity(null);
+        assertInvalidCommand(missingBaseQuantity, "批次数量必须大于0");
+
+        StockBatchCreateCommand zeroBaseQuantity = command();
+        zeroBaseQuantity.setBaseQuantity(0);
+        assertInvalidCommand(zeroBaseQuantity, "批次数量必须大于0");
+
+        StockBatchCreateCommand missingPurchasePrice = command();
+        missingPurchasePrice.setPurchasePrice(null);
+        assertInvalidCommand(missingPurchasePrice, "批次进价不能小于0");
+
+        StockBatchCreateCommand negativePurchasePrice = command();
+        negativePurchasePrice.setPurchasePrice(new BigDecimal("-0.01"));
+        assertInvalidCommand(negativePurchasePrice, "批次进价不能小于0");
+
+        StockBatchCreateCommand missingProductionDate = command();
+        missingProductionDate.setProductionDate(null);
+        assertInvalidCommand(missingProductionDate, "生产日期不能为空");
+
+        StockBatchCreateCommand missingShelfLifeDays = command();
+        missingShelfLifeDays.setShelfLifeDays(null);
+        assertInvalidCommand(missingShelfLifeDays, "保质期天数必须大于0");
+
+        StockBatchCreateCommand zeroShelfLifeDays = command();
+        zeroShelfLifeDays.setShelfLifeDays(0);
+        assertInvalidCommand(zeroShelfLifeDays, "保质期天数必须大于0");
+
+        verify(stockBatchMapper, never()).insertBatch(any(StockBatch.class));
+    }
+
+    @Test
+    void createFromPurchaseInboundItem_rejectsMissingGeneratedKey() {
+        String todayPrefix = "SB" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+        when(stockBatchMapper.findMaxBatchNo(todayPrefix + "%")).thenReturn(null);
+        when(stockBatchMapper.insertBatch(any(StockBatch.class))).thenReturn(null);
+
+        assertThatThrownBy(() -> stockBatchService.createFromPurchaseInboundItem(command()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("库存批次保存失败");
+    }
+
+    @Test
+    void createFromPurchaseInboundItem_rejectsSequenceBeyondDailyLimit() {
+        String todayPrefix = "SB" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+        when(stockBatchMapper.findMaxBatchNo(todayPrefix + "%")).thenReturn(todayPrefix + "999");
+
+        assertThatThrownBy(() -> stockBatchService.createFromPurchaseInboundItem(command()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("库存批次号当日序号已达上限");
+
+        verify(stockBatchMapper, never()).insertBatch(any(StockBatch.class));
+    }
+
+    @Test
     void writePurchaseInboundLog_writesBatchLog() {
         StockBatch batch = batch();
 
@@ -131,6 +197,12 @@ class StockBatchServiceTest {
 
         assertThat(result).containsExactly(batch);
         verify(stockBatchMapper).findBySkuId(20L);
+    }
+
+    private void assertInvalidCommand(StockBatchCreateCommand command, String message) {
+        assertThatThrownBy(() -> stockBatchService.createFromPurchaseInboundItem(command))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(message);
     }
 
     private StockBatchCreateCommand command() {
