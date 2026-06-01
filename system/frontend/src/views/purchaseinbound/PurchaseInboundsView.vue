@@ -37,6 +37,14 @@
               <span class="form-label">采购单价</span>
               <input v-model.number="line.purchasePrice" class="input" type="number" min="0" step="0.01" />
             </label>
+            <label class="form-item">
+              <span class="form-label">生产日期</span>
+              <input v-model="line.productionDate" class="input" type="date" />
+            </label>
+            <label class="form-item">
+              <span class="form-label">保质期天数</span>
+              <input v-model.number="line.shelfLifeDays" class="input" type="number" min="1" />
+            </label>
             <div v-if="linePreview(line)" class="form-hint full">{{ linePreview(line) }}</div>
           </div>
         </div>
@@ -110,7 +118,11 @@ const detailColumns = [
   { key: 'baseQuantity', title: '基础数量' },
   { key: 'purchasePrice', title: '采购单价' },
   { key: 'costPrice', title: '成本单价' },
-  { key: 'amount', title: '小计' }
+  { key: 'amount', title: '小计' },
+  { key: 'batchNo', title: '批次号' },
+  { key: 'productionDate', title: '生产日期' },
+  { key: 'shelfLifeDays', title: '保质期' },
+  { key: 'expireDate', title: '到期日期' }
 ]
 
 const query = reactive({ keyword: '', page: 1, pageSize: 10 })
@@ -138,7 +150,9 @@ function createLine() {
     quantity: 1,
     unit: '',
     conversionRate: 1,
-    purchasePrice: 0
+    purchasePrice: 0,
+    productionDate: '',
+    shelfLifeDays: 180
   }
 }
 
@@ -160,12 +174,21 @@ function lineAmount(line) {
   const price = Number(line.purchasePrice || 0)
   return quantity > 0 && price >= 0 ? quantity * price : 0
 }
+function expireDate(line) {
+  if (!line.productionDate || !line.shelfLifeDays || Number(line.shelfLifeDays) <= 0) {
+    return ''
+  }
+  const date = new Date(`${line.productionDate}T00:00:00`)
+  date.setDate(date.getDate() + Number(line.shelfLifeDays))
+  return date.toISOString().slice(0, 10)
+}
 function linePreview(line) {
   if (!line.selectedSku || !line.unit || !line.quantity || line.quantity <= 0) {
     return ''
   }
   const baseUnit = line.selectedSku.baseUnit || '基础单位'
-  return `${line.quantity} ${line.unit} = ${baseQuantity(line)} ${baseUnit}，小计 ${formatMoney(lineAmount(line))}`
+  const batchText = expireDate(line) ? `，到期 ${expireDate(line)}` : ''
+  return `${line.quantity} ${line.unit} = ${baseQuantity(line)} ${baseUnit}，小计 ${formatMoney(lineAmount(line))}${batchText}`
 }
 async function loadData() {
   loading.value = true
@@ -238,9 +261,12 @@ function validateForm() {
     !line.quantity ||
     line.quantity <= 0 ||
     line.purchasePrice === '' ||
-    Number(line.purchasePrice) < 0
+    Number(line.purchasePrice) < 0 ||
+    !line.productionDate ||
+    !line.shelfLifeDays ||
+    Number(line.shelfLifeDays) <= 0
   ))
-  return invalid ? '请选择SKU、单位并填写正确数量和采购单价' : ''
+  return invalid ? '请选择SKU、单位，并填写正确数量、采购单价、生产日期和保质期' : ''
 }
 async function submit() {
   const error = validateForm()
@@ -255,7 +281,9 @@ async function submit() {
         skuId: line.skuId,
         quantity: Number(line.quantity),
         unit: line.unit,
-        purchasePrice: Number(line.purchasePrice)
+        purchasePrice: Number(line.purchasePrice),
+        productionDate: line.productionDate,
+        shelfLifeDays: Number(line.shelfLifeDays)
       })),
       remark: form.remark
     })
