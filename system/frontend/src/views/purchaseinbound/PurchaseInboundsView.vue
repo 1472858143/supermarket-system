@@ -43,7 +43,7 @@
             </label>
             <label class="form-item">
               <span class="form-label">保质期天数</span>
-              <input v-model.number="line.shelfLifeDays" class="input" type="number" min="1" />
+              <input v-model.number="line.shelfLifeDays" class="input" type="number" min="1" step="1" />
             </label>
             <div v-if="linePreview(line)" class="form-hint full">{{ linePreview(line) }}</div>
           </div>
@@ -175,19 +175,25 @@ function lineAmount(line) {
   return quantity > 0 && price >= 0 ? quantity * price : 0
 }
 function expireDate(line) {
-  if (!line.productionDate || !line.shelfLifeDays || Number(line.shelfLifeDays) <= 0) {
+  const days = Number(line.shelfLifeDays)
+  if (!line.productionDate || !Number.isInteger(days) || days <= 0) {
     return ''
   }
-  const date = new Date(`${line.productionDate}T00:00:00`)
-  date.setDate(date.getDate() + Number(line.shelfLifeDays))
-  return date.toISOString().slice(0, 10)
+  const [year, month, day] = line.productionDate.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  date.setUTCDate(date.getUTCDate() + days)
+  const yyyy = date.getUTCFullYear()
+  const mm = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(date.getUTCDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
 }
 function linePreview(line) {
   if (!line.selectedSku || !line.unit || !line.quantity || line.quantity <= 0) {
     return ''
   }
   const baseUnit = line.selectedSku.baseUnit || '基础单位'
-  const batchText = expireDate(line) ? `，到期 ${expireDate(line)}` : ''
+  const expiresAt = expireDate(line)
+  const batchText = expiresAt ? `，到期 ${expiresAt}` : ''
   return `${line.quantity} ${line.unit} = ${baseQuantity(line)} ${baseUnit}，小计 ${formatMoney(lineAmount(line))}${batchText}`
 }
 async function loadData() {
@@ -264,6 +270,7 @@ function validateForm() {
     Number(line.purchasePrice) < 0 ||
     !line.productionDate ||
     !line.shelfLifeDays ||
+    !Number.isInteger(Number(line.shelfLifeDays)) ||
     Number(line.shelfLifeDays) <= 0
   ))
   return invalid ? '请选择SKU、单位，并填写正确数量、采购单价、生产日期和保质期' : ''
