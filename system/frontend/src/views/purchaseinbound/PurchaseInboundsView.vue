@@ -20,6 +20,15 @@
     </section>
 
     <BaseDialog v-model="dialogVisible" title="新增采购入库">
+      <label class="form-item full">
+        <span class="form-label">供应商</span>
+        <select v-model.number="form.supplierId" class="select">
+          <option :value="null">请选择供应商</option>
+          <option v-for="supplier in suppliers" :key="supplier.id" :value="supplier.id">
+            {{ supplier.supplierCode }} / {{ supplier.supplierName }}
+          </option>
+        </select>
+      </label>
       <div class="detail-lines">
         <div v-for="(line, index) in form.items" :key="line.key" class="line-panel">
           <div class="line-header">
@@ -27,7 +36,20 @@
             <button v-if="form.items.length > 1" class="btn btn-ghost btn-small" type="button" @click="removeLine(index)">删除</button>
           </div>
           <div class="form-grid">
-            <SkuSelector v-model="line.skuId" :products="products" @sku-selected="(sku) => handleSkuSelected(line, sku)" />
+            <label class="form-item">
+              <span class="form-label">SKU</span>
+              <select
+                v-model.number="line.bindingId"
+                class="select"
+                :disabled="!form.supplierId || supplierSkuLoading"
+                @change="handleSupplierSkuSelected(line)"
+              >
+                <option :value="null">{{ supplierSkuLoading ? '加载中...' : '请选择SKU' }}</option>
+                <option v-for="binding in supplierSkus" :key="binding.id" :value="binding.id">
+                  {{ binding.skuCode }} / {{ binding.skuName }}
+                </option>
+              </select>
+            </label>
             <UnitSelector v-model="line.unit" :base-unit="line.selectedSku?.baseUnit || ''" :units="line.units" @rate-changed="(rate) => setConversionRate(line, rate)" />
             <label class="form-item">
               <span class="form-label">数量</span>
@@ -68,6 +90,7 @@
       <div v-if="detail" class="detail-block">
         <div class="detail-grid">
           <span>单号</span><strong>{{ detail.orderNo }}</strong>
+          <span>供应商</span><strong>{{ detail.supplierCode }} / {{ detail.supplierName }}</strong>
           <span>状态</span><strong>{{ detail.status }}</strong>
           <span>总数量</span><strong>{{ detail.totalQuantity }}</strong>
           <span>总金额</span><strong>{{ formatMoney(detail.totalAmount) }}</strong>
@@ -91,18 +114,18 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import BaseDialog from '../../components/BaseDialog.vue'
 import BaseTable from '../../components/BaseTable.vue'
 import PageToolbar from '../../components/PageToolbar.vue'
 import PermissionButton from '../../components/PermissionButton.vue'
-import SkuSelector from '../../components/SkuSelector.vue'
 import UnitSelector from '../../components/UnitSelector.vue'
-import { listProducts } from '../../api/product'
+import { listEnabledSupplierSkus, listSuppliers } from '../../api/supplier'
 import { createPurchaseInbound, getPurchaseInbound, listPurchaseInbounds } from '../../api/purchaseInbound'
 
 const columns = [
   { key: 'orderNo', title: '单号' },
+  { key: 'supplierName', title: '供应商' },
   { key: 'totalQuantity', title: '总数量' },
   { key: 'totalAmount', title: '总金额' },
   { key: 'operator', title: '操作人' },
@@ -127,7 +150,9 @@ const detailColumns = [
 
 const query = reactive({ keyword: '', page: 1, pageSize: 10 })
 const items = ref([])
-const products = ref([])
+const suppliers = ref([])
+const supplierSkus = ref([])
+const supplierSkuLoading = ref(false)
 const total = ref(0)
 const loading = ref(false)
 const submitting = ref(false)
@@ -136,7 +161,7 @@ const detailVisible = ref(false)
 const detail = ref(null)
 const message = ref('')
 const messageType = ref('success')
-const form = reactive({ items: [], remark: '' })
+const form = reactive({ supplierId: null, items: [], remark: '' })
 
 const totalBaseQuantity = computed(() => form.items.reduce((sum, line) => sum + baseQuantity(line), 0))
 const totalAmount = computed(() => form.items.reduce((sum, line) => sum + lineAmount(line), 0))
@@ -151,9 +176,11 @@ const linePreviews = computed(() => {
 function createLine() {
   return {
     key: Date.now() + Math.random(),
+    bindingId: null,
     skuId: null,
     selectedSku: null,
     units: [],
+    minPurchaseQuantity: 1,
     quantity: 1,
     unit: '',
     conversionRate: 1,
@@ -215,20 +242,44 @@ async function loadData() {
     loading.value = false
   }
 }
-async function loadProducts() {
+async function loadSuppliers() {
   try {
-    const data = await listProducts({ page: 1, pageSize: 100 })
-    products.value = data.items || []
+    const data = await listSuppliers({ page: 1, pageSize: 100 })
+    suppliers.value = (data.items || []).filter((supplier) => supplier.status === 1)
   } catch (error) {
     showMessage(error.message, 'error')
   }
 }
-function handleSkuSelected(line, sku) {
-  line.selectedSku = sku
-  line.units = sku?.units || []
-  line.skuId = sku?.id || null
-  line.unit = sku?.baseUnit || ''
+async function loadSupplierSkus(supplierId) {
+  supplierSkus.value = []
+  if (!supplierId) return
+  supplierSkuLoading.value = true
+  try {
+    supplierSkus.value = await listEnabledSupplierSkus(supplierId)
+  } catch (error) {
+    showMessage(error.message, 'error')
+  } finally {
+    supplierSkuLoading.value = false
+  }
+}
+watch(
+  () => form.supplierId,
+  async (supplierId, previousSupplierId) => {
+    if (previousSupplierId !== undefined && supplierId !== previousSupplierId) {
+      form.items.splice(0, form.items.length, createLine())
+    }
+    await loadSupplierSkus(supplierId)
+  }
+)
+function handleSupplierSkuSelected(line) {
+  const binding = supplierSkus.value.find((item) => item.id === line.bindingId) || null
+  line.selectedSku = binding
+  line.skuId = binding?.skuId || null
+  line.units = binding?.units || []
+  line.unit = binding?.baseUnit || ''
   line.conversionRate = 1
+  line.purchasePrice = Number(binding?.defaultPurchasePrice || 0)
+  line.minPurchaseQuantity = binding?.minPurchaseQuantity || 1
 }
 function setConversionRate(line, rate) {
   line.conversionRate = rate || 1
@@ -252,6 +303,8 @@ function removeLine(index) {
   form.items.splice(index, 1)
 }
 function openCreate() {
+  form.supplierId = null
+  supplierSkus.value = []
   form.items.splice(0, form.items.length, createLine())
   form.remark = ''
   dialogVisible.value = true
@@ -265,6 +318,9 @@ async function openDetail(item) {
   }
 }
 function validateForm() {
+  if (!form.supplierId) {
+    return '请选择供应商'
+  }
   if (!form.items.length) {
     return '请至少添加一条明细'
   }
@@ -273,6 +329,7 @@ function validateForm() {
     !line.unit ||
     !line.quantity ||
     line.quantity <= 0 ||
+    Number(line.quantity) < Number(line.minPurchaseQuantity || 1) ||
     line.purchasePrice === '' ||
     Number(line.purchasePrice) < 0 ||
     !line.productionDate ||
@@ -280,7 +337,7 @@ function validateForm() {
     !Number.isInteger(Number(line.shelfLifeDays)) ||
     Number(line.shelfLifeDays) <= 0
   ))
-  return invalid ? '请选择SKU、单位，并填写正确数量、采购单价、生产日期和保质期' : ''
+  return invalid ? '请选择供应商SKU，并填写正确数量、采购单价、生产日期和保质期；数量不能低于最小采购量' : ''
 }
 async function submit() {
   const error = validateForm()
@@ -291,6 +348,7 @@ async function submit() {
   submitting.value = true
   try {
     await createPurchaseInbound({
+      supplierId: form.supplierId,
       items: form.items.map((line) => ({
         skuId: line.skuId,
         quantity: Number(line.quantity),
@@ -312,7 +370,7 @@ async function submit() {
 }
 
 onMounted(() => {
-  loadProducts()
+  loadSuppliers()
   loadData()
 })
 </script>
