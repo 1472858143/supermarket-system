@@ -6,10 +6,14 @@ import java.util.List;
 public class UserVO {
 
     private Long id;
+    private String employeeNo;
     private String username;
     private String realName;
+    private String email;
+    private String contactPhone;
     private Integer status;
     private LocalDateTime createTime;
+    private LocalDateTime lastLoginTime;
     private List<RoleVO> roles;
 
     public Long getId() {
@@ -18,6 +22,14 @@ public class UserVO {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public String getEmployeeNo() {
+        return employeeNo;
+    }
+
+    public void setEmployeeNo(String employeeNo) {
+        this.employeeNo = employeeNo;
     }
 
     public String getUsername() {
@@ -36,6 +48,22 @@ public class UserVO {
         this.realName = realName;
     }
 
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getContactPhone() {
+        return contactPhone;
+    }
+
+    public void setContactPhone(String contactPhone) {
+        this.contactPhone = contactPhone;
+    }
+
     public Integer getStatus() {
         return status;
     }
@@ -50,6 +78,14 @@ public class UserVO {
 
     public void setCreateTime(LocalDateTime createTime) {
         this.createTime = createTime;
+    }
+
+    public LocalDateTime getLastLoginTime() {
+        return lastLoginTime;
+    }
+
+    public void setLastLoginTime(LocalDateTime lastLoginTime) {
+        this.lastLoginTime = lastLoginTime;
     }
 
     public List<RoleVO> getRoles() {

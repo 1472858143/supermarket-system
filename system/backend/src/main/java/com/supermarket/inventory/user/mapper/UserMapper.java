@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.PreparedStatement;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,11 +23,16 @@ public class UserMapper {
     private final RowMapper<User> userRowMapper = (rs, rowNum) -> {
         User user = new User();
         user.setId(rs.getLong("id"));
+        user.setEmployeeNo(rs.getString("employee_no"));
         user.setUsername(rs.getString("username"));
         user.setPassword(rs.getString("password"));
         user.setRealName(rs.getString("real_name"));
+        user.setEmail(rs.getString("email"));
+        user.setContactPhone(rs.getString("contact_phone"));
         user.setStatus(rs.getInt("status"));
         user.setCreateTime(rs.getTimestamp("create_time").toLocalDateTime());
+        Timestamp lastLoginTime = rs.getTimestamp("last_login_time");
+        user.setLastLoginTime(lastLoginTime == null ? null : lastLoginTime.toLocalDateTime());
         return user;
     };
 
@@ -71,8 +77,16 @@ public class UserMapper {
     public long countUsers(String keyword) {
         String like = "%" + (keyword == null ? "" : keyword.trim()) + "%";
         return jdbcTemplate.queryForObject(
-                "select count(*) from user where username like ? or real_name like ?",
+                """
+                select count(*)
+                from user
+                where employee_no like ? or username like ? or real_name like ?
+                    or email like ? or contact_phone like ?
+                """,
                 Long.class,
+                like,
+                like,
+                like,
                 like,
                 like
         );
@@ -81,8 +95,18 @@ public class UserMapper {
     public List<User> findUsers(String keyword, int offset, int pageSize) {
         String like = "%" + (keyword == null ? "" : keyword.trim()) + "%";
         return jdbcTemplate.query(
-                "select * from user where username like ? or real_name like ? order by id desc limit ? offset ?",
+                """
+                select *
+                from user
+                where employee_no like ? or username like ? or real_name like ?
+                    or email like ? or contact_phone like ?
+                order by id desc
+                limit ? offset ?
+                """,
                 userRowMapper,
+                like,
+                like,
+                like,
                 like,
                 like,
                 pageSize,
@@ -90,17 +114,34 @@ public class UserMapper {
         );
     }
 
+    public String findMaxEmployeeNo(String pattern) {
+        return jdbcTemplate.queryForObject(
+                "select max(employee_no) from user where employee_no like ?",
+                String.class,
+                pattern
+        );
+    }
+
     public Long insertUser(User user) {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(
-                    "insert into user(username, password, real_name, status) values (?, ?, ?, ?)",
+                    """
+                    insert into user(
+                        employee_no, username, password, real_name,
+                        email, contact_phone, status
+                    )
+                    values (?, ?, ?, ?, ?, ?, ?)
+                    """,
                     Statement.RETURN_GENERATED_KEYS
             );
-            ps.setString(1, user.getUsername());
-            ps.setString(2, user.getPassword());
-            ps.setString(3, user.getRealName());
-            ps.setInt(4, user.getStatus());
+            ps.setString(1, user.getEmployeeNo());
+            ps.setString(2, user.getUsername());
+            ps.setString(3, user.getPassword());
+            ps.setString(4, user.getRealName());
+            ps.setString(5, user.getEmail());
+            ps.setString(6, user.getContactPhone());
+            ps.setInt(7, user.getStatus());
             return ps;
         }, keyHolder);
         Number key = keyHolder.getKey();
@@ -109,8 +150,14 @@ public class UserMapper {
 
     public void updateUser(User user) {
         jdbcTemplate.update(
-                "update user set real_name = ?, status = ? where id = ?",
+                """
+                update user
+                set real_name = ?, email = ?, contact_phone = ?, status = ?
+                where id = ?
+                """,
                 user.getRealName(),
+                user.getEmail(),
+                user.getContactPhone(),
                 user.getStatus(),
                 user.getId()
         );
@@ -118,6 +165,10 @@ public class UserMapper {
 
     public void updatePassword(Long id, String passwordHash) {
         jdbcTemplate.update("update user set password = ? where id = ?", passwordHash, id);
+    }
+
+    public void updateLastLoginTime(Long id) {
+        jdbcTemplate.update("update user set last_login_time = now() where id = ?", id);
     }
 
     public void deleteUser(Long id) {

@@ -10,11 +10,16 @@ USE market;
 
 CREATE TABLE user (
                       id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                      employee_no VARCHAR(20) NOT NULL COMMENT '工号，格式 EMPyyyyNNNN',
                       username VARCHAR(50) NOT NULL,
                       password VARCHAR(255) NOT NULL COMMENT '密码哈希摘要，不存储明文密码',
                       real_name VARCHAR(50),
+                      email VARCHAR(100) DEFAULT NULL COMMENT '邮箱',
+                      contact_phone VARCHAR(30) NOT NULL COMMENT '联系方式',
                       status TINYINT NOT NULL DEFAULT 1 COMMENT '0-禁用 1-启用',
                       create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                      last_login_time DATETIME DEFAULT NULL COMMENT '最近一次登录时间',
+                      UNIQUE KEY uk_user_employee_no (employee_no),
                       UNIQUE KEY uk_user_username (username)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

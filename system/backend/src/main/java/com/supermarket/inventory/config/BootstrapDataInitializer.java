@@ -8,8 +8,14 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Year;
+
 @Component
 public class BootstrapDataInitializer implements CommandLineRunner {
+
+    private static final String EMPLOYEE_NO_PREFIX = "EMP";
+    private static final int EMPLOYEE_NO_SEQUENCE_LENGTH = 4;
+    private static final String DEFAULT_CONTACT_PHONE = "00000000000";
 
     private final UserMapper userMapper;
     private final PasswordService passwordService;
@@ -61,11 +67,26 @@ public class BootstrapDataInitializer implements CommandLineRunner {
             return;
         }
         User user = new User();
+        user.setEmployeeNo(nextEmployeeNo());
         user.setUsername(username);
         user.setPassword(passwordService.encode(password));
         user.setRealName(realName);
+        user.setContactPhone(DEFAULT_CONTACT_PHONE);
         user.setStatus(1);
         Long userId = userMapper.insertUser(user);
         userMapper.insertUserRole(userId, roleId);
+    }
+
+    private String nextEmployeeNo() {
+        int year = Year.now().getValue();
+        String prefix = EMPLOYEE_NO_PREFIX + year;
+        String maxEmployeeNo = userMapper.findMaxEmployeeNo(prefix + "%");
+        int sequence = 1;
+        if (maxEmployeeNo != null
+                && maxEmployeeNo.startsWith(prefix)
+                && maxEmployeeNo.length() == prefix.length() + EMPLOYEE_NO_SEQUENCE_LENGTH) {
+            sequence = Integer.parseInt(maxEmployeeNo.substring(prefix.length())) + 1;
+        }
+        return prefix + String.format("%0" + EMPLOYEE_NO_SEQUENCE_LENGTH + "d", sequence);
     }
 }

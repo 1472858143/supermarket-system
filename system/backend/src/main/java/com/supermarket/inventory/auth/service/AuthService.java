@@ -34,6 +34,7 @@ public class AuthService {
         if (!passwordService.matches(request.getPassword(), user.getPassword())) {
             throw new BusinessException(401, "用户名或密码错误");
         }
+        userMapper.updateLastLoginTime(user.getId());
         List<String> roles = userMapper.findRolesByUserId(user.getId())
                 .stream()
                 .map(Role::getRoleCode)
