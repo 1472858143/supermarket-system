@@ -17,6 +17,19 @@ const props = defineProps({
 })
 
 const label = computed(() => {
+  if (props.type === 'purchase') {
+    const purchaseStatusMap = {
+      DRAFT: { text: '草稿', className: 'tag-muted' },
+      SUBMITTED: { text: '待审批', className: 'tag-warning' },
+      RETURNED: { text: '退回修改', className: 'tag-danger' },
+      APPROVED: { text: '已审批', className: 'tag-success' },
+      PARTIALLY_INBOUNDED: { text: '部分入库', className: 'tag-warning' },
+      INBOUNDED: { text: '已入库', className: 'tag-success' },
+      CANCELLED: { text: '已取消', className: 'tag-muted' },
+      CLOSED: { text: '已关闭', className: 'tag-muted' }
+    }
+    return purchaseStatusMap[props.value]?.text || props.value || '-'
+  }
   if (props.type === 'batch') {
     const labels = {
       AVAILABLE: '可用',
@@ -44,6 +57,19 @@ const label = computed(() => {
 })
 
 const className = computed(() => {
+  if (props.type === 'purchase') {
+    const purchaseStatusMap = {
+      DRAFT: { text: '草稿', className: 'tag-muted' },
+      SUBMITTED: { text: '待审批', className: 'tag-warning' },
+      RETURNED: { text: '退回修改', className: 'tag-danger' },
+      APPROVED: { text: '已审批', className: 'tag-success' },
+      PARTIALLY_INBOUNDED: { text: '部分入库', className: 'tag-warning' },
+      INBOUNDED: { text: '已入库', className: 'tag-success' },
+      CANCELLED: { text: '已取消', className: 'tag-muted' },
+      CLOSED: { text: '已关闭', className: 'tag-muted' }
+    }
+    return purchaseStatusMap[props.value]?.className || 'tag-muted'
+  }
   if (props.type === 'batch') {
     const classes = {
       AVAILABLE: 'tag-success',
