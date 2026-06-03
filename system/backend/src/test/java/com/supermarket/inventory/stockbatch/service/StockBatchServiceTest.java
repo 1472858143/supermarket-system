@@ -288,11 +288,13 @@ class StockBatchServiceTest {
     void lock_changesAvailableBatchToLockedAndWritesStatusLog() {
         StockBatch batch = batch("AVAILABLE", 48);
         when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(java.util.Optional.of(batch));
+        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(Optional.of(stock(20L, 60, 50, 6, 4)));
         when(stockBatchMapper.updateStatus(10L, 20L, "LOCKED")).thenReturn(1);
 
         stockBatchService.lock(20L, 10L);
 
         verify(stockBatchMapper).updateStatus(10L, 20L, "LOCKED");
+        verify(stockMapper).updateQuantities(20L, 60, 2, 54, 4);
         StockBatchLog log = captureLog();
         assertStatusLog(log, "BATCH_LOCK", 48);
     }
@@ -301,11 +303,13 @@ class StockBatchServiceTest {
     void lock_changesExpiredBatchToLockedAndWritesStatusLog() {
         StockBatch batch = batch("EXPIRED", 48);
         when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(java.util.Optional.of(batch));
+        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(Optional.of(stock(20L, 60, 4, 8, 48)));
         when(stockBatchMapper.updateStatus(10L, 20L, "LOCKED")).thenReturn(1);
 
         stockBatchService.lock(20L, 10L);
 
         verify(stockBatchMapper).updateStatus(10L, 20L, "LOCKED");
+        verify(stockMapper).updateQuantities(20L, 60, 4, 56, 0);
         StockBatchLog log = captureLog();
         assertStatusLog(log, "BATCH_LOCK", 48);
     }
@@ -327,11 +331,13 @@ class StockBatchServiceTest {
         StockBatch batch = batch("LOCKED", 48);
         batch.setExpireDate(LocalDate.now().plusDays(1));
         when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(java.util.Optional.of(batch));
+        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(Optional.of(stock(20L, 60, 5, 50, 5)));
         when(stockBatchMapper.updateStatus(10L, 20L, "AVAILABLE")).thenReturn(1);
 
         stockBatchService.unlock(20L, 10L);
 
         verify(stockBatchMapper).updateStatus(10L, 20L, "AVAILABLE");
+        verify(stockMapper).updateQuantities(20L, 60, 53, 2, 5);
         StockBatchLog log = captureLog();
         assertThat(log.getSourceType()).isEqualTo("BATCH_UNLOCK");
         assertThat(log.getChangeType()).isEqualTo("BATCH_STATUS");
@@ -344,11 +350,13 @@ class StockBatchServiceTest {
         StockBatch batch = batch("LOCKED", 48);
         batch.setExpireDate(LocalDate.now().minusDays(1));
         when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(java.util.Optional.of(batch));
+        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(Optional.of(stock(20L, 60, 5, 50, 5)));
         when(stockBatchMapper.updateStatus(10L, 20L, "EXPIRED")).thenReturn(1);
 
         stockBatchService.unlock(20L, 10L);
 
         verify(stockBatchMapper).updateStatus(10L, 20L, "EXPIRED");
+        verify(stockMapper).updateQuantities(20L, 60, 5, 2, 53);
         StockBatchLog log = captureLog();
         assertThat(log.getSourceType()).isEqualTo("BATCH_UNLOCK");
     }
@@ -358,11 +366,13 @@ class StockBatchServiceTest {
         StockBatch batch = batch("LOCKED", 0);
         batch.setExpireDate(LocalDate.now().minusDays(1));
         when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(java.util.Optional.of(batch));
+        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(Optional.of(stock(20L, 60, 5, 50, 5)));
         when(stockBatchMapper.updateStatus(10L, 20L, "AVAILABLE")).thenReturn(1);
 
         stockBatchService.unlock(20L, 10L);
 
         verify(stockBatchMapper).updateStatus(10L, 20L, "AVAILABLE");
+        verify(stockMapper).updateQuantities(20L, 60, 5, 50, 5);
         StockBatchLog log = captureLog();
         assertThat(log.getSourceType()).isEqualTo("BATCH_UNLOCK");
         assertThat(log.getBeforeQuantity()).isEqualTo(0);
@@ -373,12 +383,12 @@ class StockBatchServiceTest {
     void damage_partiallyDamagesLockedBatchKeepsLockedStatusAndWritesDamageLog() {
         StockBatch batch = batch("LOCKED", 48);
         when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(java.util.Optional.of(batch));
-        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(java.util.Optional.of(stock(20L, 60)));
+        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(java.util.Optional.of(stock(20L, 60, 8, 48, 4)));
         when(stockBatchMapper.updateRemainingQuantityAndStatus(10L, 20L, 43, "LOCKED")).thenReturn(1);
 
         stockBatchService.damage(20L, 10L, damageRequest(5, "破损", "外包装破损 "));
 
-        verify(stockMapper).updateQuantity(20L, 55);
+        verify(stockMapper).updateQuantities(20L, 55, 8, 43, 4);
         verify(stockMapper).insertLog(20L, "DAMAGE", -5, 60, 55);
         verify(stockBatchMapper).updateRemainingQuantityAndStatus(10L, 20L, 43, "LOCKED");
         StockBatchLog log = captureLog();
@@ -398,14 +408,28 @@ class StockBatchServiceTest {
     void damage_fullyDamagesBatchAndSetsDamaged() {
         StockBatch batch = batch("AVAILABLE", 48);
         when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(java.util.Optional.of(batch));
-        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(java.util.Optional.of(stock(20L, 60)));
+        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(java.util.Optional.of(stock(20L, 60, 48, 8, 4)));
         when(stockBatchMapper.updateRemainingQuantityAndStatus(10L, 20L, 0, "DAMAGED")).thenReturn(1);
 
         stockBatchService.damage(20L, 10L, damageRequest(48, "过期", null));
 
-        verify(stockMapper).updateQuantity(20L, 12);
+        verify(stockMapper).updateQuantities(20L, 12, 0, 8, 4);
         verify(stockMapper).insertLog(20L, "DAMAGE", -48, 60, 12);
         verify(stockBatchMapper).updateRemainingQuantityAndStatus(10L, 20L, 0, "DAMAGED");
+    }
+
+    @Test
+    void damage_partiallyDamagesExpiredBatchDeductsExpiredBucket() {
+        StockBatch batch = batch("EXPIRED", 12);
+        when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(java.util.Optional.of(batch));
+        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(java.util.Optional.of(stock(20L, 60, 40, 8, 12)));
+        when(stockBatchMapper.updateRemainingQuantityAndStatus(10L, 20L, 7, "EXPIRED")).thenReturn(1);
+
+        stockBatchService.damage(20L, 10L, damageRequest(5, "过期", null));
+
+        verify(stockMapper).updateQuantities(20L, 55, 40, 8, 7);
+        verify(stockMapper).insertLog(20L, "DAMAGE", -5, 60, 55);
+        verify(stockBatchMapper).updateRemainingQuantityAndStatus(10L, 20L, 7, "EXPIRED");
     }
 
     @Test
@@ -413,7 +437,7 @@ class StockBatchServiceTest {
         for (String status : List.of("DEPLETED", "DAMAGED", "CLOSED")) {
             org.mockito.Mockito.reset(stockBatchMapper, stockMapper);
             StockBatch batch = batch(status, 48);
-            when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(Optional.of(stock(20L, 60)));
+            when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(Optional.of(stock(20L, 60, 60, 0, 0)));
             when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(java.util.Optional.of(batch));
 
             assertThatThrownBy(() -> stockBatchService.damage(20L, 10L, damageRequest(1, "破损", null)))
@@ -421,6 +445,7 @@ class StockBatchServiceTest {
         }
 
         verify(stockMapper, never()).updateQuantity(anyLong(), anyInt());
+        verify(stockMapper, never()).updateQuantities(anyLong(), anyInt(), anyInt(), anyInt(), anyInt());
         verify(stockMapper, never()).insertLog(anyLong(), anyString(), anyInt(), anyInt(), anyInt());
         verify(stockBatchMapper, never()).updateRemainingQuantityAndStatus(anyLong(), anyLong(), anyInt(), anyString());
     }
@@ -435,13 +460,14 @@ class StockBatchServiceTest {
 
         verify(stockBatchMapper, never()).findByIdAndSkuIdForUpdate(anyLong(), anyLong());
         verify(stockMapper, never()).updateQuantity(anyLong(), anyInt());
+        verify(stockMapper, never()).updateQuantities(anyLong(), anyInt(), anyInt(), anyInt(), anyInt());
         verify(stockMapper, never()).insertLog(anyLong(), anyString(), anyInt(), anyInt(), anyInt());
     }
 
     @Test
     void damage_rejectsInsufficientStockBeforeUpdatingBatch() {
         StockBatch batch = batch("AVAILABLE", 48);
-        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(Optional.of(stock(20L, 3)));
+        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(Optional.of(stock(20L, 3, 3, 0, 0)));
         when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(Optional.of(batch));
 
         assertThatThrownBy(() -> stockBatchService.damage(20L, 10L, damageRequest(5, "破损", null)))
@@ -449,6 +475,7 @@ class StockBatchServiceTest {
                 .hasMessage("库存不足，无法出库");
 
         verify(stockMapper, never()).updateQuantity(anyLong(), anyInt());
+        verify(stockMapper, never()).updateQuantities(anyLong(), anyInt(), anyInt(), anyInt(), anyInt());
         verify(stockMapper, never()).insertLog(anyLong(), anyString(), anyInt(), anyInt(), anyInt());
         verify(stockBatchMapper, never()).updateRemainingQuantityAndStatus(anyLong(), anyLong(), anyInt(), anyString());
         verify(stockBatchMapper, never()).insertLog(any());
@@ -458,13 +485,13 @@ class StockBatchServiceTest {
     void damage_rejectsBatchUpdateMissAndDoesNotWriteBatchLog() {
         StockBatch batch = batch("AVAILABLE", 48);
         when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(java.util.Optional.of(batch));
-        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(java.util.Optional.of(stock(20L, 60)));
+        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(java.util.Optional.of(stock(20L, 60, 48, 8, 4)));
         when(stockBatchMapper.updateRemainingQuantityAndStatus(10L, 20L, 43, "AVAILABLE")).thenReturn(0);
 
         assertThatThrownBy(() -> stockBatchService.damage(20L, 10L, damageRequest(5, "破损", null)))
                 .isInstanceOf(BusinessException.class);
 
-        verify(stockMapper).updateQuantity(20L, 55);
+        verify(stockMapper).updateQuantities(20L, 55, 43, 8, 4);
         verify(stockMapper).insertLog(20L, "DAMAGE", -5, 60, 55);
         verify(stockBatchMapper, never()).insertLog(any());
     }
@@ -472,13 +499,14 @@ class StockBatchServiceTest {
     @Test
     void damage_rejectsQuantityGreaterThanRemaining() {
         StockBatch batch = batch("AVAILABLE", 3);
-        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(java.util.Optional.of(stock(20L, 60)));
+        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(java.util.Optional.of(stock(20L, 60, 60, 0, 0)));
         when(stockBatchMapper.findByIdAndSkuIdForUpdate(10L, 20L)).thenReturn(java.util.Optional.of(batch));
 
         assertThatThrownBy(() -> stockBatchService.damage(20L, 10L, damageRequest(4, "破损", null)))
                 .isInstanceOf(BusinessException.class);
 
         verify(stockMapper, never()).updateQuantity(anyLong(), anyInt());
+        verify(stockMapper, never()).updateQuantities(anyLong(), anyInt(), anyInt(), anyInt(), anyInt());
         verify(stockMapper, never()).insertLog(anyLong(), anyString(), anyInt(), anyInt(), anyInt());
     }
 
@@ -529,6 +557,7 @@ class StockBatchServiceTest {
         StockBatch second = batch("AVAILABLE", 8);
         second.setId(11L);
         when(stockBatchMapper.findExpiredAvailableBatchesForUpdate(today)).thenReturn(List.of(first, second));
+        when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(Optional.of(stock(20L, 60, 40, 8, 12)));
         when(stockBatchMapper.updateStatus(10L, 20L, "EXPIRED")).thenReturn(1);
         when(stockBatchMapper.updateStatus(11L, 20L, "EXPIRED")).thenReturn(1);
 
@@ -537,6 +566,7 @@ class StockBatchServiceTest {
         assertThat(result).isEqualTo(2);
         verify(stockBatchMapper).updateStatus(10L, 20L, "EXPIRED");
         verify(stockBatchMapper).updateStatus(11L, 20L, "EXPIRED");
+        verify(stockMapper).updateQuantities(20L, 60, 27, 8, 25);
         ArgumentCaptor<StockBatchLog> logCaptor = ArgumentCaptor.forClass(StockBatchLog.class);
         verify(stockBatchMapper, org.mockito.Mockito.times(2)).insertLog(logCaptor.capture());
         assertThat(logCaptor.getAllValues())
@@ -678,10 +708,17 @@ class StockBatchServiceTest {
     }
 
     private Stock stock(Long skuId, int quantity) {
+        return stock(skuId, quantity, quantity, 0, 0);
+    }
+
+    private Stock stock(Long skuId, int totalQuantity, int availableQuantity, int lockedQuantity, int expiredQuantity) {
         Stock stock = new Stock();
         stock.setId(30L);
         stock.setSkuId(skuId);
-        stock.setQuantity(quantity);
+        stock.setTotalQuantity(totalQuantity);
+        stock.setAvailableQuantity(availableQuantity);
+        stock.setLockedQuantity(lockedQuantity);
+        stock.setExpiredQuantity(expiredQuantity);
         stock.setMinStock(0);
         stock.setMaxStock(100);
         return stock;

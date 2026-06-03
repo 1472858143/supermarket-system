@@ -18,7 +18,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @Service
@@ -171,7 +173,9 @@ public class StockBatchService {
         if (!STATUS_AVAILABLE.equals(batch.getStatus()) && !STATUS_EXPIRED.equals(batch.getStatus())) {
             throw new BusinessException("当前批次状态不允许锁定");
         }
+        Stock stock = getStockForUpdate(skuId);
         ensureBatchUpdated(stockBatchMapper.updateStatus(batchId, skuId, STATUS_LOCKED));
+        moveStockBucket(stock, skuId, batch.getStatus(), STATUS_LOCKED, safeQuantity(batch));
         writeStatusLog(batch, SOURCE_TYPE_BATCH_LOCK);
     }
 
@@ -182,7 +186,9 @@ public class StockBatchService {
             throw new BusinessException("当前批次状态不允许解锁");
         }
         String targetStatus = isExpiredWithQuantity(batch, LocalDate.now()) ? STATUS_EXPIRED : STATUS_AVAILABLE;
+        Stock stock = getStockForUpdate(skuId);
         ensureBatchUpdated(stockBatchMapper.updateStatus(batchId, skuId, targetStatus));
+        moveStockBucket(stock, skuId, STATUS_LOCKED, targetStatus, safeQuantity(batch));
         writeStatusLog(batch, SOURCE_TYPE_BATCH_UNLOCK);
     }
 
@@ -198,7 +204,7 @@ public class StockBatchService {
         int afterQuantity = beforeQuantity - damageQuantity;
         String afterStatus = afterQuantity == 0 ? STATUS_DAMAGED : batch.getStatus();
 
-        decreaseStockForDamage(stock, skuId, damageQuantity);
+        decreaseStockForDamage(stock, skuId, damageQuantity, batch.getStatus());
         ensureBatchUpdated(stockBatchMapper.updateRemainingQuantityAndStatus(batchId, skuId, afterQuantity, afterStatus));
         writeQuantityLog(batch, -damageQuantity, afterQuantity, SOURCE_TYPE_BATCH_DAMAGE,
                 request.getReason().trim(), normalizeRemark(request.getRemark()));
@@ -223,9 +229,15 @@ public class StockBatchService {
             throw new BusinessException("过期扫描日期不能为空");
         }
         List<StockBatch> batches = stockBatchMapper.findExpiredAvailableBatchesForUpdate(today);
+        Map<Long, Integer> expiredQuantityBySkuId = new LinkedHashMap<>();
         for (StockBatch batch : batches) {
             ensureBatchUpdated(stockBatchMapper.updateStatus(batch.getId(), batch.getSkuId(), STATUS_EXPIRED));
+            expiredQuantityBySkuId.merge(batch.getSkuId(), safeQuantity(batch), Integer::sum);
             writeStatusLog(batch, SOURCE_TYPE_BATCH_EXPIRE_SCAN);
+        }
+        for (Map.Entry<Long, Integer> entry : expiredQuantityBySkuId.entrySet()) {
+            Stock stock = getStockForUpdate(entry.getKey());
+            moveStockBucket(stock, entry.getKey(), STATUS_AVAILABLE, STATUS_EXPIRED, entry.getValue());
         }
         return batches.size();
     }
@@ -235,10 +247,49 @@ public class StockBatchService {
                 .orElseThrow(() -> new BusinessException(404, "库存记录不存在"));
     }
 
-    private void decreaseStockForDamage(Stock stock, Long skuId, int quantity) {
-        int afterQuantity = stockDomainService.decrease(stock.getQuantity(), quantity);
-        stockMapper.updateQuantity(skuId, afterQuantity);
-        stockMapper.insertLog(skuId, CHANGE_TYPE_DAMAGE, -quantity, stock.getQuantity(), afterQuantity);
+    private void decreaseStockForDamage(Stock stock, Long skuId, int quantity, String batchStatus) {
+        int beforeTotal = stock.getTotalQuantity();
+        int afterTotal = stockDomainService.decrease(beforeTotal, quantity);
+        int afterAvailable = stock.getAvailableQuantity();
+        int afterLocked = stock.getLockedQuantity();
+        int afterExpired = stock.getExpiredQuantity();
+        if (STATUS_AVAILABLE.equals(batchStatus)) {
+            afterAvailable = stockDomainService.decrease(afterAvailable, quantity);
+        } else if (STATUS_LOCKED.equals(batchStatus)) {
+            afterLocked = stockDomainService.decrease(afterLocked, quantity);
+        } else if (STATUS_EXPIRED.equals(batchStatus)) {
+            afterExpired = stockDomainService.decrease(afterExpired, quantity);
+        }
+        stockMapper.updateQuantities(skuId, afterTotal, afterAvailable, afterLocked, afterExpired);
+        stockMapper.insertLog(skuId, CHANGE_TYPE_DAMAGE, -quantity, beforeTotal, afterTotal);
+    }
+
+    private void moveStockBucket(Stock stock, Long skuId, String fromStatus, String toStatus, int quantity) {
+        int available = stock.getAvailableQuantity();
+        int locked = stock.getLockedQuantity();
+        int expired = stock.getExpiredQuantity();
+        if (quantity > 0) {
+            if (STATUS_AVAILABLE.equals(fromStatus)) {
+                available = stockDomainService.decrease(available, quantity);
+            } else if (STATUS_LOCKED.equals(fromStatus)) {
+                locked = stockDomainService.decrease(locked, quantity);
+            } else if (STATUS_EXPIRED.equals(fromStatus)) {
+                expired = stockDomainService.decrease(expired, quantity);
+            }
+
+            if (STATUS_AVAILABLE.equals(toStatus)) {
+                available = stockDomainService.increase(available, quantity);
+            } else if (STATUS_LOCKED.equals(toStatus)) {
+                locked = stockDomainService.increase(locked, quantity);
+            } else if (STATUS_EXPIRED.equals(toStatus)) {
+                expired = stockDomainService.increase(expired, quantity);
+            }
+        }
+        stockMapper.updateQuantities(skuId, stock.getTotalQuantity(), available, locked, expired);
+    }
+
+    private int safeQuantity(StockBatch batch) {
+        return batch.getQuantity() == null ? 0 : batch.getQuantity();
     }
 
     private StockBatch getBatchForUpdate(Long skuId, Long batchId) {
