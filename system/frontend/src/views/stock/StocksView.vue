@@ -47,13 +47,17 @@
           <span>商品编号</span><strong>{{ batchStock.productCode || '-' }}</strong>
           <span>SKU编码</span><strong>{{ batchStock.skuCode || '-' }}</strong>
           <span>规格</span><strong>{{ batchStock.spec || '-' }}</strong>
-          <span>当前库存</span><strong>{{ batchStock.quantity ?? '-' }}</strong>
+          <span>总库存</span><strong>{{ batchStock.totalQuantity ?? '-' }}</strong>
+          <span>可用库存</span><strong>{{ batchStock.availableQuantity ?? '-' }}</strong>
+          <span>锁定库存</span><strong>{{ batchStock.lockedQuantity ?? '-' }}</strong>
+          <span>过期库存</span><strong>{{ batchStock.expiredQuantity ?? '-' }}</strong>
         </div>
         <BaseTable :columns="batchColumns" :items="batches" :total="batches.length" :page="1" :page-size="batches.length || 1" :loading="batchLoading" :show-actions="true" empty-text="暂无批次">
           <template #cell-status="{ item }">
             <StatusTag type="batch" :value="item.status" />
           </template>
           <template #cell-purchasePrice="{ item }">{{ formatMoney(item.purchasePrice) }}</template>
+          <template #cell-costPrice="{ item }">{{ formatMoney(item.costPrice, 8) }}</template>
           <template #actions="{ item }">
             <button v-if="canLockBatch(item)" class="btn btn-ghost btn-small" type="button" :disabled="batchActionLoading" @click="handleLockBatch(item)">冻结</button>
             <button v-if="canUnlockBatch(item)" class="btn btn-ghost btn-small" type="button" :disabled="batchActionLoading" @click="handleUnlockBatch(item)">解冻</button>
@@ -113,7 +117,10 @@ const columns = [
   { key: 'spec', title: '规格' },
   { key: 'baseUnit', title: '基础单位' },
   { key: 'category', title: '分类' },
-  { key: 'quantity', title: '当前库存' },
+  { key: 'totalQuantity', title: '总库存' },
+  { key: 'availableQuantity', title: '可用库存' },
+  { key: 'lockedQuantity', title: '锁定库存' },
+  { key: 'expiredQuantity', title: '过期库存' },
   { key: 'minStock', title: '下限' },
   { key: 'maxStock', title: '上限' },
   { key: 'warningStatus', title: '预警' },
@@ -124,11 +131,12 @@ const batchColumns = [
   { key: 'status', title: '状态' },
   { key: 'initialQuantity', title: '批次数量' },
   { key: 'quantity', title: '剩余数量' },
-  { key: 'purchasePrice', title: '进价' },
+  { key: 'purchasePrice', title: '采购价' },
+  { key: 'costPrice', title: '成本价' },
+  { key: 'purchaseInboundReceiptBatchId', title: '入库批次ID' },
   { key: 'productionDate', title: '生产日期' },
   { key: 'shelfLifeDays', title: '保质期' },
-  { key: 'expireDate', title: '到期日期' },
-  { key: 'createTime', title: '创建时间' }
+  { key: 'expireDate', title: '到期日期' }
 ]
 const query = reactive({ keyword: '', page: 1, pageSize: 10 })
 const items = ref([])
