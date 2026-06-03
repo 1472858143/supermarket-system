@@ -31,11 +31,12 @@ public class StockBatchMapper {
         batch.setId(rs.getLong("id"));
         batch.setBatchNo(rs.getString("batch_no"));
         batch.setSkuId(rs.getLong("sku_id"));
-        batch.setPurchaseInboundItemId(rs.getLong("purchase_inbound_item_id"));
+        batch.setPurchaseInboundReceiptBatchId(rs.getLong("purchase_inbound_receipt_batch_id"));
         batch.setInitialQuantity(rs.getInt("initial_quantity"));
         batch.setQuantity(rs.getInt("quantity"));
         batch.setStatus(rs.getString("status"));
         batch.setPurchasePrice(rs.getBigDecimal("purchase_price"));
+        batch.setCostPrice(rs.getBigDecimal("cost_price"));
         Date productionDate = rs.getDate("production_date");
         batch.setProductionDate(productionDate == null ? null : productionDate.toLocalDate());
         batch.setShelfLifeDays(rs.getInt("shelf_life_days"));
@@ -55,11 +56,12 @@ public class StockBatchMapper {
         vo.setSkuName(rs.getString("sku_name"));
         vo.setProductCode(rs.getString("product_code"));
         vo.setProductName(rs.getString("product_name"));
-        vo.setPurchaseInboundItemId(rs.getLong("purchase_inbound_item_id"));
+        vo.setPurchaseInboundReceiptBatchId(rs.getLong("purchase_inbound_receipt_batch_id"));
         vo.setInitialQuantity(rs.getInt("initial_quantity"));
         vo.setQuantity(rs.getInt("quantity"));
         vo.setStatus(rs.getString("status"));
         vo.setPurchasePrice(rs.getBigDecimal("purchase_price"));
+        vo.setCostPrice(rs.getBigDecimal("cost_price"));
         Date productionDate = rs.getDate("production_date");
         vo.setProductionDate(productionDate == null ? null : productionDate.toLocalDate());
         vo.setShelfLifeDays(rs.getInt("shelf_life_days"));
@@ -88,23 +90,24 @@ public class StockBatchMapper {
             PreparedStatement ps = connection.prepareStatement(
                     """
                     insert into stock_batch(
-                        batch_no, sku_id, purchase_inbound_item_id, initial_quantity, quantity,
-                        status, purchase_price, production_date, shelf_life_days, expire_date
+                        batch_no, sku_id, purchase_inbound_receipt_batch_id, initial_quantity, quantity,
+                        status, purchase_price, cost_price, production_date, shelf_life_days, expire_date
                     )
-                    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     Statement.RETURN_GENERATED_KEYS
             );
             ps.setString(1, batch.getBatchNo());
             ps.setLong(2, batch.getSkuId());
-            ps.setLong(3, batch.getPurchaseInboundItemId());
+            ps.setLong(3, batch.getPurchaseInboundReceiptBatchId());
             ps.setInt(4, batch.getInitialQuantity());
             ps.setInt(5, batch.getQuantity());
             ps.setString(6, batch.getStatus());
             ps.setBigDecimal(7, batch.getPurchasePrice());
-            ps.setDate(8, Date.valueOf(batch.getProductionDate()));
-            ps.setInt(9, batch.getShelfLifeDays());
-            ps.setDate(10, Date.valueOf(batch.getExpireDate()));
+            ps.setBigDecimal(8, batch.getCostPrice());
+            ps.setDate(9, Date.valueOf(batch.getProductionDate()));
+            ps.setInt(10, batch.getShelfLifeDays());
+            ps.setDate(11, Date.valueOf(batch.getExpireDate()));
             return ps;
         }, keyHolder);
         Number key = keyHolder.getKey();

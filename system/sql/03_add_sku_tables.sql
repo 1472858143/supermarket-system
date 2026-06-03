@@ -49,11 +49,6 @@ ALTER TABLE stock ADD COLUMN sku_id BIGINT NULL AFTER product_id;
 
 ALTER TABLE stock_log ADD COLUMN sku_id BIGINT NULL AFTER product_id;
 
-ALTER TABLE inbound_order ADD COLUMN sku_id BIGINT NULL AFTER product_id;
-ALTER TABLE inbound_order ADD COLUMN unit VARCHAR(20) NOT NULL DEFAULT '个' COMMENT '操作单位';
-ALTER TABLE inbound_order ADD COLUMN conversion_rate INT NOT NULL DEFAULT 1 COMMENT '换算率快照';
-ALTER TABLE inbound_order ADD COLUMN base_quantity INT NOT NULL DEFAULT 0 COMMENT '换算后基础单位数量';
-
 ALTER TABLE outbound_order ADD COLUMN sku_id BIGINT NULL AFTER product_id;
 ALTER TABLE outbound_order ADD COLUMN unit VARCHAR(20) NOT NULL DEFAULT '个' COMMENT '操作单位';
 ALTER TABLE outbound_order ADD COLUMN conversion_rate INT NOT NULL DEFAULT 1 COMMENT '换算率快照';
@@ -86,13 +81,6 @@ UPDATE stock_log sl
 INNER JOIN sku k ON k.product_id = sl.product_id AND k.is_default = 1
 SET sl.sku_id = k.id;
 
-UPDATE inbound_order io
-INNER JOIN sku k ON k.product_id = io.product_id AND k.is_default = 1
-SET io.sku_id = k.id,
-    io.unit = '个',
-    io.conversion_rate = 1,
-    io.base_quantity = io.quantity;
-
 UPDATE outbound_order oo
 INNER JOIN sku k ON k.product_id = oo.product_id AND k.is_default = 1
 SET oo.sku_id = k.id,
@@ -109,9 +97,6 @@ ALTER TABLE stock
 
 ALTER TABLE stock_log
     ADD CONSTRAINT fk_stock_log_sku FOREIGN KEY (sku_id) REFERENCES sku(id);
-
-ALTER TABLE inbound_order
-    ADD CONSTRAINT fk_inbound_sku FOREIGN KEY (sku_id) REFERENCES sku(id);
 
 ALTER TABLE outbound_order
     ADD CONSTRAINT fk_outbound_sku FOREIGN KEY (sku_id) REFERENCES sku(id);

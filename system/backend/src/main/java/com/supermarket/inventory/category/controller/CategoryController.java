@@ -2,6 +2,7 @@ package com.supermarket.inventory.category.controller;
 
 import com.supermarket.inventory.auth.security.RequireRoles;
 import com.supermarket.inventory.category.dto.CategoryRequest;
+import com.supermarket.inventory.category.dto.CategorySortOrderRequest;
 import com.supermarket.inventory.category.service.CategoryService;
 import com.supermarket.inventory.category.vo.CategoryVO;
 import com.supermarket.inventory.common.response.ApiResponse;
@@ -42,6 +43,13 @@ public class CategoryController {
     @RequireRoles("ADMIN")
     public ApiResponse<CategoryVO> update(@PathVariable Long id, @Valid @RequestBody CategoryRequest request) {
         return ApiResponse.success(categoryService.update(id, request));
+    }
+
+    @PutMapping("/sort-order")
+    @RequireRoles("ADMIN")
+    public ApiResponse<Void> updateSortOrders(@Valid @RequestBody List<CategorySortOrderRequest> requests) {
+        categoryService.updateSortOrders(requests);
+        return ApiResponse.success();
     }
 
     @DeleteMapping("/{id}")

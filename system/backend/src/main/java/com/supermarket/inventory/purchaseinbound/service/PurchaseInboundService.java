@@ -1,18 +1,28 @@
 package com.supermarket.inventory.purchaseinbound.service;
 
+import com.supermarket.inventory.auth.security.CurrentUser;
 import com.supermarket.inventory.auth.security.CurrentUserContext;
 import com.supermarket.inventory.common.exception.BusinessException;
 import com.supermarket.inventory.common.response.PageResult;
 import com.supermarket.inventory.common.util.PageUtils;
+import com.supermarket.inventory.purchaseinbound.domain.PurchaseInboundAction;
+import com.supermarket.inventory.purchaseinbound.domain.PurchaseInboundStatus;
+import com.supermarket.inventory.purchaseinbound.domain.PurchaseInboundWorkflow;
+import com.supermarket.inventory.purchaseinbound.dto.PurchaseInboundDecisionRequest;
 import com.supermarket.inventory.purchaseinbound.dto.PurchaseInboundItemRequest;
 import com.supermarket.inventory.purchaseinbound.dto.PurchaseInboundRequest;
 import com.supermarket.inventory.purchaseinbound.entity.PurchaseInbound;
+import com.supermarket.inventory.purchaseinbound.entity.PurchaseInboundApprovalLog;
 import com.supermarket.inventory.purchaseinbound.entity.PurchaseInboundItem;
 import com.supermarket.inventory.purchaseinbound.mapper.PurchaseInboundMapper;
+import com.supermarket.inventory.purchaseinbound.vo.PurchaseInboundItemVO;
 import com.supermarket.inventory.purchaseinbound.vo.PurchaseInboundVO;
 import com.supermarket.inventory.sku.service.SkuUnitResolver;
-import com.supermarket.inventory.stock.dto.StockIncreaseCommand;
 import com.supermarket.inventory.stock.service.StockService;
+import com.supermarket.inventory.supplier.entity.Supplier;
+import com.supermarket.inventory.supplier.entity.SupplierSku;
+import com.supermarket.inventory.supplier.mapper.SupplierMapper;
+import com.supermarket.inventory.supplier.service.SupplierSkuService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,23 +37,28 @@ import java.util.List;
 @Service
 public class PurchaseInboundService {
 
-    private static final String STATUS_COMPLETED = "COMPLETED";
-    private static final String STOCK_SOURCE_TYPE = "PURCHASE_INBOUND_ITEM";
     private static final BigDecimal MAX_PURCHASE_PRICE = new BigDecimal("100000000.00");
     private static final BigDecimal MAX_AMOUNT = new BigDecimal("10000000000.00");
 
     private final PurchaseInboundMapper purchaseInboundMapper;
     private final SkuUnitResolver skuUnitResolver;
+    @SuppressWarnings("unused")
     private final StockService stockService;
+    private final SupplierMapper supplierMapper;
+    private final SupplierSkuService supplierSkuService;
 
     public PurchaseInboundService(
             PurchaseInboundMapper purchaseInboundMapper,
             SkuUnitResolver skuUnitResolver,
-            StockService stockService
+            StockService stockService,
+            SupplierMapper supplierMapper,
+            SupplierSkuService supplierSkuService
     ) {
         this.purchaseInboundMapper = purchaseInboundMapper;
         this.skuUnitResolver = skuUnitResolver;
         this.stockService = stockService;
+        this.supplierMapper = supplierMapper;
+        this.supplierSkuService = supplierSkuService;
     }
 
     public PageResult<PurchaseInboundVO> list(String keyword, Integer page, Integer pageSize) {
@@ -66,51 +81,25 @@ public class PurchaseInboundService {
 
     @Transactional
     public PurchaseInboundVO create(PurchaseInboundRequest request) {
-        String operator = CurrentUserContext.get().getUsername();
-        List<PreparedInboundItem> items = new ArrayList<>();
-        int totalQuantity = 0;
-        BigDecimal totalAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        return createDraft(request);
+    }
 
-        for (PurchaseInboundItemRequest requestItem : request.getItems()) {
-            validateBatchFields(requestItem);
-            SkuUnitResolver.ResolvedUnit resolvedUnit = skuUnitResolver.resolve(requestItem.getSkuId(), requestItem.getUnit());
-            int baseQuantity = calculateBaseQuantity(requestItem.getQuantity(), resolvedUnit.conversionRate());
-            BigDecimal purchasePrice = validatePurchasePrice(requestItem.getPurchasePrice());
-            BigDecimal costPrice = purchasePrice.divide(
-                    BigDecimal.valueOf(resolvedUnit.conversionRate()),
-                    4,
-                    RoundingMode.HALF_UP
-            );
-            BigDecimal amount = purchasePrice.multiply(BigDecimal.valueOf(requestItem.getQuantity()))
-                    .setScale(2, RoundingMode.HALF_UP);
-            validateAmount(amount);
-
-            PurchaseInboundItem item = new PurchaseInboundItem();
-            item.setSkuId(resolvedUnit.sku().getId());
-            item.setQuantity(requestItem.getQuantity());
-            item.setUnit(resolvedUnit.unit());
-            item.setConversionRate(resolvedUnit.conversionRate());
-            item.setBaseQuantity(baseQuantity);
-            item.setPurchasePrice(purchasePrice);
-            item.setCostPrice(costPrice);
-            item.setAmount(amount);
-            items.add(new PreparedInboundItem(
-                    item,
-                    requestItem.getProductionDate(),
-                    requestItem.getProductionDate().plusDays(requestItem.getShelfLifeDays())
-            ));
-
-            totalQuantity = addBaseQuantity(totalQuantity, baseQuantity);
-            totalAmount = totalAmount.add(amount);
-            validateAmount(totalAmount);
-        }
+    @Transactional
+    public PurchaseInboundVO createDraft(PurchaseInboundRequest request) {
+        PreparedPlan preparedPlan = preparePlan(request);
+        CurrentUser currentUser = CurrentUserContext.get();
 
         PurchaseInbound inbound = new PurchaseInbound();
         inbound.setOrderNo(nextOrderNo());
-        inbound.setTotalQuantity(totalQuantity);
-        inbound.setTotalAmount(totalAmount.setScale(2, RoundingMode.HALF_UP));
-        inbound.setStatus(STATUS_COMPLETED);
-        inbound.setOperator(operator);
+        inbound.setSupplierId(preparedPlan.supplierId());
+        inbound.setPlannedTotalQuantity(preparedPlan.totalQuantity());
+        inbound.setPlannedTotalAmount(preparedPlan.totalAmount());
+        inbound.setInboundTotalQuantity(0);
+        inbound.setInboundTotalAmount(BigDecimal.ZERO.setScale(6, RoundingMode.HALF_UP));
+        inbound.setStatus(PurchaseInboundStatus.DRAFT.name());
+        inbound.setCreatorUserId(currentUser.getUserId());
+        inbound.setCreatorUsername(currentUser.getUsername());
+        inbound.setOperator(currentUser.getUsername());
         inbound.setRemark(request.getRemark());
 
         Long inboundId;
@@ -119,51 +108,219 @@ public class PurchaseInboundService {
         } catch (DuplicateKeyException exception) {
             throw new BusinessException("采购入库单号重复，请重试");
         }
-        for (PreparedInboundItem preparedItem : items) {
-            PurchaseInboundItem item = preparedItem.item();
-            item.setPurchaseInboundId(inboundId);
-            Long itemId = purchaseInboundMapper.insertItem(item);
-            item.setId(itemId);
-            stockService.increase(toStockIncreaseCommand(
-                    inboundId,
-                    item,
-                    preparedItem.productionDate(),
-                    preparedItem.expiryDate()
-            ));
+        insertItems(inboundId, preparedPlan.items());
+        return getById(inboundId);
+    }
+
+    @Transactional
+    public PurchaseInboundVO updatePlan(Long id, PurchaseInboundRequest request) {
+        PurchaseInboundVO current = requireForUpdate(id);
+        PurchaseInboundStatus currentStatus = parseStatus(current.getStatus());
+        if (!PurchaseInboundWorkflow.isPlanEditable(currentStatus)) {
+            throw new BusinessException("当前采购单状态不允许修改计划");
         }
-        return purchaseInboundMapper.findById(inboundId)
+
+        PreparedPlan preparedPlan = preparePlan(request);
+        PurchaseInbound inbound = new PurchaseInbound();
+        inbound.setId(id);
+        inbound.setSupplierId(preparedPlan.supplierId());
+        inbound.setPlannedTotalQuantity(preparedPlan.totalQuantity());
+        inbound.setPlannedTotalAmount(preparedPlan.totalAmount());
+        inbound.setRemark(request.getRemark());
+
+        purchaseInboundMapper.updatePlan(inbound);
+        purchaseInboundMapper.deleteItemsByInboundId(id);
+        insertItems(id, preparedPlan.items());
+        return getById(id);
+    }
+
+    @Transactional
+    public PurchaseInboundVO submit(Long id) {
+        PurchaseInboundVO current = requireForUpdate(id);
+        PurchaseInboundStatus from = parseStatus(current.getStatus());
+        PurchaseInboundStatus to = PurchaseInboundWorkflow.next(from, PurchaseInboundAction.SUBMIT);
+        List<PurchaseInboundItemVO> items = purchaseInboundMapper.findItemsByInboundId(id);
+        if (items == null || items.isEmpty()) {
+            throw new BusinessException("采购计划明细不能为空");
+        }
+
+        CurrentUser currentUser = CurrentUserContext.get();
+        purchaseInboundMapper.updateStatusForSubmit(id, to.name(), currentUser.getUserId(), currentUser.getUsername());
+        writeApprovalLog(id, PurchaseInboundAction.SUBMIT, from, to, null);
+        return getById(id);
+    }
+
+    @Transactional
+    public PurchaseInboundVO approve(Long id) {
+        PurchaseInboundVO current = requireForUpdate(id);
+        PurchaseInboundStatus from = parseStatus(current.getStatus());
+        PurchaseInboundStatus to = PurchaseInboundWorkflow.next(from, PurchaseInboundAction.APPROVE);
+        CurrentUser currentUser = CurrentUserContext.get();
+
+        purchaseInboundMapper.updateStatusForApprove(id, to.name(), currentUser.getUserId(), currentUser.getUsername());
+        writeApprovalLog(id, PurchaseInboundAction.APPROVE, from, to, null);
+        return getById(id);
+    }
+
+    @Transactional
+    public PurchaseInboundVO returnForModification(Long id, PurchaseInboundDecisionRequest request) {
+        PurchaseInboundVO current = requireForUpdate(id);
+        PurchaseInboundStatus from = parseStatus(current.getStatus());
+        PurchaseInboundStatus to = PurchaseInboundWorkflow.next(from, PurchaseInboundAction.RETURN);
+
+        purchaseInboundMapper.updateStatus(id, to.name());
+        writeApprovalLog(id, PurchaseInboundAction.RETURN, from, to, request);
+        return getById(id);
+    }
+
+    @Transactional
+    public PurchaseInboundVO cancel(Long id, PurchaseInboundDecisionRequest request) {
+        PurchaseInboundVO current = requireForUpdate(id);
+        if (defaultInt(current.getInboundTotalQuantity()) > 0) {
+            throw new BusinessException("已有实际入库结果的采购单不能取消");
+        }
+
+        PurchaseInboundStatus from = parseStatus(current.getStatus());
+        PurchaseInboundStatus to = PurchaseInboundWorkflow.next(from, PurchaseInboundAction.CANCEL);
+        CurrentUser currentUser = CurrentUserContext.get();
+        String reason = request == null ? null : request.getReason();
+
+        purchaseInboundMapper.updateStatusForCancel(id, to.name(), currentUser.getUserId(), currentUser.getUsername(), reason);
+        writeApprovalLog(id, PurchaseInboundAction.CANCEL, from, to, request);
+        return getById(id);
+    }
+
+    @Transactional
+    public PurchaseInboundVO close(Long id, PurchaseInboundDecisionRequest request) {
+        PurchaseInboundVO current = requireForUpdate(id);
+        PurchaseInboundStatus from = parseStatus(current.getStatus());
+        PurchaseInboundStatus to = PurchaseInboundWorkflow.next(from, PurchaseInboundAction.CLOSE);
+        int inboundTotalQuantity = defaultInt(current.getInboundTotalQuantity());
+        int plannedTotalQuantity = defaultInt(current.getPlannedTotalQuantity());
+        if (inboundTotalQuantity <= 0 || inboundTotalQuantity >= plannedTotalQuantity) {
+            throw new BusinessException("只有已部分入库且未满计划的采购单可以关闭");
+        }
+
+        CurrentUser currentUser = CurrentUserContext.get();
+        String reason = request == null ? null : request.getReason();
+        purchaseInboundMapper.updateStatusForClose(id, to.name(), currentUser.getUserId(), currentUser.getUsername(), reason);
+        writeApprovalLog(id, PurchaseInboundAction.CLOSE, from, to, request);
+        return getById(id);
+    }
+
+    private PreparedPlan preparePlan(PurchaseInboundRequest request) {
+        if (request == null) {
+            throw new BusinessException("采购计划不能为空");
+        }
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new BusinessException("采购计划明细不能为空");
+        }
+
+        Supplier supplier = requireEnabledSupplier(request.getSupplierId());
+        Long supplierId = supplier.getId();
+        List<PurchaseInboundItem> items = new ArrayList<>();
+        int totalQuantity = 0;
+        BigDecimal totalAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+
+        for (PurchaseInboundItemRequest requestItem : request.getItems()) {
+            SupplierSku binding = supplierSkuService.requireEnabledBinding(supplierId, requestItem.getSkuId());
+            validateMinPurchaseQuantity(requestItem, binding);
+            SkuUnitResolver.ResolvedUnit resolvedUnit = skuUnitResolver.resolve(requestItem.getSkuId(), requestItem.getUnit());
+            int baseQuantity = calculateBaseQuantity(requestItem.getQuantity(), resolvedUnit.conversionRate());
+            BigDecimal purchasePrice = validatePurchasePrice(requestItem.getPurchasePrice());
+            BigDecimal costPrice = purchasePrice.divide(
+                    BigDecimal.valueOf(resolvedUnit.conversionRate()),
+                    8,
+                    RoundingMode.HALF_UP
+            );
+            BigDecimal amount = purchasePrice.multiply(BigDecimal.valueOf(requestItem.getQuantity()))
+                    .setScale(2, RoundingMode.HALF_UP);
+            validateAmount(amount);
+
+            PurchaseInboundItem item = new PurchaseInboundItem();
+            item.setSkuId(resolvedUnit.sku().getId());
+            item.setSupplierSkuId(binding.getId());
+            item.setSupplierSkuCodeSnapshot(binding.getSupplierSkuCode());
+            item.setSupplierSkuNameSnapshot(binding.getSupplierSkuName());
+            item.setSupplierSpecSnapshot(binding.getSupplierSpec());
+            item.setPlannedQuantity(requestItem.getQuantity());
+            item.setUnit(resolvedUnit.unit());
+            item.setConversionRate(resolvedUnit.conversionRate());
+            item.setPlannedBaseQuantity(baseQuantity);
+            item.setPlannedAmount(amount);
+            item.setInboundedBaseQuantity(0);
+            item.setInboundedAmount(BigDecimal.ZERO.setScale(6, RoundingMode.HALF_UP));
+            item.setPurchasePrice(purchasePrice);
+            item.setCostPrice(costPrice);
+            items.add(item);
+
+            totalQuantity = addBaseQuantity(totalQuantity, baseQuantity);
+            totalAmount = totalAmount.add(amount);
+            validateAmount(totalAmount);
+        }
+
+        return new PreparedPlan(supplierId, totalQuantity, totalAmount.setScale(2, RoundingMode.HALF_UP), items);
+    }
+
+    private void insertItems(Long inboundId, List<PurchaseInboundItem> items) {
+        for (PurchaseInboundItem item : items) {
+            item.setPurchaseInboundId(inboundId);
+            purchaseInboundMapper.insertItem(item);
+        }
+    }
+
+    private PurchaseInboundVO requireForUpdate(Long id) {
+        return purchaseInboundMapper.findByIdForUpdate(id)
                 .orElseThrow(() -> new BusinessException(404, "采购入库单不存在"));
     }
 
-    private void validateBatchFields(PurchaseInboundItemRequest requestItem) {
-        if (requestItem.getProductionDate() == null) {
-            throw new BusinessException("生产日期不能为空");
+    private Supplier requireEnabledSupplier(Long supplierId) {
+        if (supplierId == null) {
+            throw new BusinessException("供应商不能为空");
         }
-        if (requestItem.getShelfLifeDays() == null || requestItem.getShelfLifeDays() <= 0) {
-            throw new BusinessException("保质期天数必须大于0");
+        Supplier supplier = supplierMapper.findById(supplierId)
+                .orElseThrow(() -> new BusinessException("供应商不存在"));
+        if (!Integer.valueOf(1).equals(supplier.getStatus())) {
+            throw new BusinessException("供应商已停用");
+        }
+        return supplier;
+    }
+
+    private void validateMinPurchaseQuantity(PurchaseInboundItemRequest requestItem, SupplierSku binding) {
+        int minPurchaseQuantity = binding.getMinPurchaseQuantity() == null ? 1 : binding.getMinPurchaseQuantity();
+        if (requestItem.getQuantity() < minPurchaseQuantity) {
+            throw new BusinessException("采购数量不能低于供应商最小采购量");
         }
     }
 
-    private StockIncreaseCommand toStockIncreaseCommand(
+    private void writeApprovalLog(
             Long inboundId,
-            PurchaseInboundItem item,
-            LocalDate productionDate,
-            LocalDate expiryDate
+            PurchaseInboundAction action,
+            PurchaseInboundStatus from,
+            PurchaseInboundStatus to,
+            PurchaseInboundDecisionRequest request
     ) {
-        StockIncreaseCommand command = new StockIncreaseCommand();
-        command.setSkuId(item.getSkuId());
-        command.setQuantity(item.getBaseQuantity());
-        command.setPurchasePrice(item.getPurchasePrice());
-        command.setProductionDate(productionDate);
-        command.setExpiryDate(expiryDate);
-        command.setPurchaseInboundId(inboundId);
-        command.setPurchaseInboundItemId(item.getId());
-        command.setSourceType(STOCK_SOURCE_TYPE);
-        command.setSourceId(item.getId());
-        return command;
+        CurrentUser currentUser = CurrentUserContext.get();
+        PurchaseInboundApprovalLog log = new PurchaseInboundApprovalLog();
+        log.setPurchaseInboundId(inboundId);
+        log.setAction(action.name());
+        log.setFromStatus(from.name());
+        log.setToStatus(to.name());
+        log.setOperatorUserId(currentUser.getUserId());
+        log.setOperatorUsername(currentUser.getUsername());
+        if (request != null) {
+            log.setReason(request.getReason());
+            log.setRemark(request.getRemark());
+        }
+        purchaseInboundMapper.insertApprovalLog(log);
     }
 
-    private record PreparedInboundItem(PurchaseInboundItem item, LocalDate productionDate, LocalDate expiryDate) {
+    private PurchaseInboundStatus parseStatus(String status) {
+        try {
+            return PurchaseInboundStatus.valueOf(status);
+        } catch (IllegalArgumentException | NullPointerException exception) {
+            throw new BusinessException("采购单状态异常");
+        }
     }
 
     private int calculateBaseQuantity(int quantity, int conversionRate) {
@@ -183,6 +340,12 @@ public class PurchaseInboundService {
     }
 
     private BigDecimal validatePurchasePrice(BigDecimal purchasePrice) {
+        if (purchasePrice == null) {
+            throw new BusinessException("采购单价不能为空");
+        }
+        if (purchasePrice.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException("采购单价不能小于0");
+        }
         if (purchasePrice.scale() > 2) {
             throw new BusinessException("采购单价最多保留2位小数");
         }
@@ -199,6 +362,10 @@ public class PurchaseInboundService {
         }
     }
 
+    private int defaultInt(Integer value) {
+        return value == null ? 0 : value;
+    }
+
     private String nextOrderNo() {
         String prefix = "PI" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
         String maxOrderNo = purchaseInboundMapper.findMaxOrderNo(prefix + "%");
@@ -211,5 +378,8 @@ public class PurchaseInboundService {
             }
         }
         return prefix + String.format("%03d", sequence);
+    }
+
+    private record PreparedPlan(Long supplierId, int totalQuantity, BigDecimal totalAmount, List<PurchaseInboundItem> items) {
     }
 }

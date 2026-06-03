@@ -12,6 +12,7 @@ import com.supermarket.inventory.stock.vo.StockVO;
 import com.supermarket.inventory.stockbatch.dto.StockBatchCreateCommand;
 import com.supermarket.inventory.stockbatch.entity.StockBatch;
 import com.supermarket.inventory.stockbatch.service.StockBatchService;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -72,28 +73,26 @@ public class StockService {
     }
 
     @Transactional
-    public StockVO increase(Long skuId, int quantity, String changeType) {
-        Stock stock = lockStock(skuId);
-        int afterQuantity = stockDomainService.increase(stock.getQuantity(), quantity);
-        stockMapper.updateQuantity(skuId, afterQuantity);
-        stockMapper.insertLog(skuId, changeType, quantity, stock.getQuantity(), afterQuantity);
-        return getBySkuId(skuId);
-    }
-
-    @Transactional
     public StockVO increase(StockIncreaseCommand command) {
         validateIncreaseCommand(command);
-        Stock stock = lockStock(command.getSkuId());
-        int afterQuantity = stockDomainService.increase(stock.getQuantity(), command.getQuantity());
-        stockMapper.updateQuantity(command.getSkuId(), afterQuantity);
+        Stock stock = lockStockForIncrease(command.getSkuId());
+        int afterTotal = stockDomainService.increase(stock.getTotalQuantity(), command.getQuantity());
+        int afterAvailable = stockDomainService.increase(stock.getAvailableQuantity(), command.getQuantity());
+        stockMapper.updateQuantities(
+                command.getSkuId(),
+                afterTotal,
+                afterAvailable,
+                stock.getLockedQuantity(),
+                stock.getExpiredQuantity()
+        );
         stockMapper.insertLog(
                 command.getSkuId(),
                 CHANGE_TYPE_PURCHASE_INBOUND,
                 command.getQuantity(),
-                stock.getQuantity(),
-                afterQuantity
+                stock.getTotalQuantity(),
+                afterTotal
         );
-        StockBatch batch = stockBatchService.createFromPurchaseInboundItem(toStockBatchCreateCommand(command));
+        StockBatch batch = stockBatchService.createFromPurchaseInboundReceiptBatch(toStockBatchCreateCommand(command));
         stockBatchService.writePurchaseInboundLog(batch, command.getSourceType(), command.getSourceId());
         return getBySkuId(command.getSkuId());
     }
@@ -106,10 +105,17 @@ public class StockService {
     @Transactional
     public StockVO decrease(Long skuId, int quantity, String sourceType, Long sourceId) {
         Stock stock = lockStock(skuId);
-        int afterQuantity = stockDomainService.decrease(stock.getQuantity(), quantity);
+        int afterAvailable = stockDomainService.decrease(stock.getAvailableQuantity(), quantity);
+        int afterTotal = stockDomainService.decrease(stock.getTotalQuantity(), quantity);
         var consumptions = stockBatchService.consumeByFefo(skuId, quantity);
-        stockMapper.updateQuantity(skuId, afterQuantity);
-        stockMapper.insertLog(skuId, CHANGE_TYPE_OUTBOUND, -quantity, stock.getQuantity(), afterQuantity);
+        stockMapper.updateQuantities(
+                skuId,
+                afterTotal,
+                afterAvailable,
+                stock.getLockedQuantity(),
+                stock.getExpiredQuantity()
+        );
+        stockMapper.insertLog(skuId, CHANGE_TYPE_OUTBOUND, -quantity, stock.getTotalQuantity(), afterTotal);
         stockBatchService.writeOutboundLogs(consumptions, sourceType, sourceId);
         return getBySkuId(skuId);
     }
@@ -138,6 +144,19 @@ public class StockService {
                 .orElseThrow(() -> new BusinessException(404, "库存记录不存在"));
     }
 
+    private Stock lockStockForIncrease(Long skuId) {
+        return stockMapper.findBySkuIdForUpdate(skuId)
+                .orElseGet(() -> {
+                    try {
+                        stockMapper.insertInitialStock(skuId);
+                    } catch (DuplicateKeyException exception) {
+                        // Concurrent first inbound may have created the aggregate row.
+                    }
+                    return stockMapper.findBySkuIdForUpdate(skuId)
+                            .orElseThrow(() -> new BusinessException("库存初始化后仍无法读取库存记录，skuId=" + skuId));
+                });
+    }
+
     @Transactional
     public void deleteStockBySkuId(Long skuId) {
         stockMapper.deleteBySkuId(skuId);
@@ -146,9 +165,10 @@ public class StockService {
     private StockBatchCreateCommand toStockBatchCreateCommand(StockIncreaseCommand command) {
         StockBatchCreateCommand batchCommand = new StockBatchCreateCommand();
         batchCommand.setSkuId(command.getSkuId());
-        batchCommand.setPurchaseInboundItemId(command.getPurchaseInboundItemId());
+        batchCommand.setPurchaseInboundReceiptBatchId(command.getPurchaseInboundReceiptBatchId());
         batchCommand.setBaseQuantity(command.getQuantity());
         batchCommand.setPurchasePrice(command.getPurchasePrice());
+        batchCommand.setCostPrice(command.getCostPrice());
         batchCommand.setProductionDate(command.getProductionDate());
         batchCommand.setShelfLifeDays((int) ChronoUnit.DAYS.between(command.getProductionDate(), command.getExpiryDate()));
         return batchCommand;
@@ -167,6 +187,9 @@ public class StockService {
         if (command.getPurchasePrice() == null) {
             throw new BusinessException("采购单价不能为空");
         }
+        if (command.getCostPrice() == null) {
+            throw new BusinessException("采购成本价不能为空");
+        }
         if (command.getProductionDate() == null) {
             throw new BusinessException("生产日期不能为空");
         }
@@ -176,8 +199,8 @@ public class StockService {
         if (command.getPurchaseInboundId() == null) {
             throw new BusinessException("采购入库单ID不能为空");
         }
-        if (command.getPurchaseInboundItemId() == null) {
-            throw new BusinessException("采购入库明细ID不能为空");
+        if (command.getPurchaseInboundReceiptBatchId() == null) {
+            throw new BusinessException("采购入库执行批次ID不能为空");
         }
         if (command.getSourceType() == null || command.getSourceType().isBlank()) {
             throw new BusinessException("库存来源类型不能为空");

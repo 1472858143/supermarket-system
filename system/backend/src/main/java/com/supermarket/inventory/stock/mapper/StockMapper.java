@@ -21,7 +21,10 @@ public class StockMapper {
         Stock stock = new Stock();
         stock.setId(rs.getLong("id"));
         stock.setSkuId(rs.getLong("sku_id"));
-        stock.setQuantity(rs.getInt("quantity"));
+        stock.setTotalQuantity(rs.getInt("total_quantity"));
+        stock.setAvailableQuantity(rs.getInt("available_quantity"));
+        stock.setLockedQuantity(rs.getInt("locked_quantity"));
+        stock.setExpiredQuantity(rs.getInt("expired_quantity"));
         stock.setMinStock(rs.getInt("min_stock"));
         stock.setMaxStock(rs.getInt("max_stock"));
         stock.setUpdateTime(toLocalDateTime(rs.getTimestamp("update_time")));
@@ -39,11 +42,19 @@ public class StockMapper {
         vo.setProductCode(rs.getString("product_code"));
         vo.setProductName(rs.getString("product_name"));
         vo.setCategory(rs.getString("category"));
-        vo.setQuantity(rs.getInt("quantity"));
+        vo.setTotalQuantity(rs.getInt("total_quantity"));
+        vo.setAvailableQuantity(rs.getInt("available_quantity"));
+        vo.setLockedQuantity(rs.getInt("locked_quantity"));
+        vo.setExpiredQuantity(rs.getInt("expired_quantity"));
         vo.setMinStock(rs.getInt("min_stock"));
         vo.setMaxStock(rs.getInt("max_stock"));
         vo.setUpdateTime(toLocalDateTime(rs.getTimestamp("update_time")));
-        vo.setWarningStatus(resolveWarningStatus(vo.getQuantity(), vo.getMinStock(), vo.getMaxStock()));
+        vo.setWarningStatus(resolveWarningStatus(
+                vo.getAvailableQuantity(),
+                vo.getMinStock(),
+                vo.getTotalQuantity(),
+                vo.getMaxStock()
+        ));
         return vo;
     };
 
@@ -138,7 +149,12 @@ public class StockMapper {
 
     public void insertInitialStock(Long skuId) {
         jdbcTemplate.update(
-                "insert into stock(sku_id, quantity, min_stock, max_stock) values (?, 0, 0, 100)",
+                """
+                insert into stock(
+                    sku_id, total_quantity, available_quantity, locked_quantity, expired_quantity,
+                    min_stock, max_stock
+                ) values (?, 0, 0, 0, 0, 0, 100)
+                """,
                 skuId
         );
     }
@@ -153,7 +169,27 @@ public class StockMapper {
     }
 
     public void updateQuantity(Long skuId, int quantity) {
-        jdbcTemplate.update("update stock set quantity = ? where sku_id = ?", quantity, skuId);
+        jdbcTemplate.update(
+                "update stock set total_quantity = ?, available_quantity = ? where sku_id = ?",
+                quantity,
+                quantity,
+                skuId
+        );
+    }
+
+    public void updateQuantities(Long skuId, int total, int available, int locked, int expired) {
+        jdbcTemplate.update(
+                """
+                update stock
+                set total_quantity = ?, available_quantity = ?, locked_quantity = ?, expired_quantity = ?
+                where sku_id = ?
+                """,
+                total,
+                available,
+                locked,
+                expired,
+                skuId
+        );
     }
 
     public void deleteBySkuId(Long skuId) {
@@ -178,11 +214,11 @@ public class StockMapper {
         return timestamp == null ? null : timestamp.toLocalDateTime();
     }
 
-    private String resolveWarningStatus(int quantity, int minStock, int maxStock) {
-        if (quantity < minStock) {
+    private String resolveWarningStatus(int availableQuantity, int minStock, int totalQuantity, int maxStock) {
+        if (availableQuantity < minStock) {
             return "LOW";
         }
-        if (quantity > maxStock) {
+        if (totalQuantity > maxStock) {
             return "HIGH";
         }
         return "NORMAL";

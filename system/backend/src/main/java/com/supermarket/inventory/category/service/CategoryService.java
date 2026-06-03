@@ -1,6 +1,7 @@
 package com.supermarket.inventory.category.service;
 
 import com.supermarket.inventory.category.dto.CategoryRequest;
+import com.supermarket.inventory.category.dto.CategorySortOrderRequest;
 import com.supermarket.inventory.category.entity.Category;
 import com.supermarket.inventory.category.mapper.CategoryMapper;
 import com.supermarket.inventory.category.vo.CategoryVO;
@@ -79,6 +80,15 @@ public class CategoryService {
         categoryMapper.update(category);
         return toVO(categoryMapper.findById(id)
                 .orElseThrow(() -> new BusinessException(404, "分类不存在")));
+    }
+
+    @Transactional
+    public void updateSortOrders(List<CategorySortOrderRequest> requests) {
+        for (CategorySortOrderRequest request : requests) {
+            categoryMapper.findById(request.getId())
+                    .orElseThrow(() -> new BusinessException(404, "分类不存在"));
+            categoryMapper.updateSortOrder(request.getId(), request.getSortOrder());
+        }
     }
 
     @Transactional

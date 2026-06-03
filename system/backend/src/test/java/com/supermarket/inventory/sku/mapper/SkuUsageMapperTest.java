@@ -39,6 +39,7 @@ class SkuUsageMapperTest {
         Object[] args = argsCaptor.getValue();
 
         assertThat(sql).contains("select count(*) from purchase_inbound_item where sku_id = ?");
+        assertThat(sql).doesNotContain("inbound_order");
         assertThat(args).containsOnly(skuId);
         assertThat(args).hasSize(countPlaceholders(sql));
     }
@@ -61,8 +62,7 @@ class SkuUsageMapperTest {
         assertThat(sql).doesNotContain("stock_check c where c.product_id");
         assertThat(sql).doesNotContain("o.product_id = ?");
         assertThat(sql).doesNotContain("c.product_id = ?");
-        assertThat(sql).contains("from inbound_order o where exists");
-        assertThat(sql).contains("s.id = o.sku_id");
+        assertThat(sql).doesNotContain("from inbound_order");
         assertThat(sql).contains("from outbound_order o where exists");
         assertThat(sql).contains("s.id = o.sku_id");
         assertThat(sql).contains("from stock_check c where exists");

@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
+  <defs>
+    <linearGradient id="borderGrad" x1="110" y1="110" x2="914" y2="914" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#26D2FF"/>
+      <stop offset="0.45" stop-color="#0AA8FF"/>
+      <stop offset="1" stop-color="#1972FF"/>
+    </linearGradient>
+    <linearGradient id="bgGrad" x1="160" y1="130" x2="864" y2="894" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#031A54"/>
+      <stop offset="1" stop-color="#001845"/>
+    </linearGradient>
+    <radialGradient id="bgGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(320 340) rotate(40) scale(720 720)">
+      <stop offset="0" stop-color="#0B3B9A" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#0B3B9A" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#38CFFF"/>
+      <stop offset="1" stop-color="#165BFF"/>
+    </linearGradient>
+    <linearGradient id="boxFront" x1="700" y1="492" x2="842" y2="740" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#25C2FF"/>
+      <stop offset="1" stop-color="#1F74FF"/>
+    </linearGradient>
+    <linearGradient id="boxSide" x1="614" y1="498" x2="736" y2="748" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2BD0FF"/>
+      <stop offset="1" stop-color="#1893FF"/>
+    </linearGradient>
+    <linearGradient id="boxTop" x1="622" y1="486" x2="814" y2="564" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#62E5FF"/>
+      <stop offset="1" stop-color="#78DFF5"/>
+    </linearGradient>
+    <linearGradient id="tapeGrad" x1="706" y1="486" x2="739" y2="612" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#166CFF"/>
+      <stop offset="1" stop-color="#1544D9"/>
+    </linearGradient>
+    <filter id="softShadow" x="0" y="0" width="1024" height="1024" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="5" stdDeviation="10" flood-color="#02133B" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <rect x="110" y="110" width="804" height="804" rx="165" fill="url(#bgGrad)" stroke="url(#borderGrad)" stroke-width="18"/>
+  <rect x="110" y="110" width="804" height="804" rx="165" fill="url(#bgGlow)"/>
+
+  <!-- Chart bars -->
+  <g filter="url(#softShadow)">
+    <rect x="424" y="402" width="72" height="250" rx="10" fill="url(#barGrad)"/>
+    <rect x="535" y="336" width="72" height="316" rx="10" fill="url(#barGrad)"/>
+    <rect x="646" y="252" width="72" height="400" rx="10" fill="url(#barGrad)"/>
+  </g>
+
+  <!-- Shopping cart -->
+  <g filter="url(#softShadow)">
+    <path d="M230 380 H286 C309 380 329 396 334 419 L392 679 C402 728 445 764 495 764 H740"
+          stroke="#F5F5F7" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="416" cy="828" r="48" fill="#F5F5F7"/>
+    <circle cx="652" cy="828" r="48" fill="#F5F5F7"/>
+  </g>
+
+  <!-- Box -->
+  <g filter="url(#softShadow)">
+    <polygon points="646,486 772,536 664,582 536,532" fill="url(#boxTop)"/>
+    <polygon points="536,532 664,582 664,706 536,652" fill="url(#boxSide)"/>
+    <polygon points="664,582 772,536 772,660 664,706" fill="url(#boxFront)"/>
+    <polygon points="614,502 649,489 747,527 712,540" fill="url(#tapeGrad)" opacity="0.95"/>
+    <polygon points="704,539 718,534 718,608 704,613" fill="url(#tapeGrad)" opacity="0.95"/>
+    <path d="M664 582 L664 706" stroke="#71EEFF" stroke-opacity="0.55" stroke-width="2"/>
+  </g>
+</svg>

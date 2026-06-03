@@ -8,10 +8,12 @@ public class StockIncreaseCommand {
     private Long skuId;
     private Integer quantity;
     private BigDecimal purchasePrice;
+    private BigDecimal costPrice;
     private LocalDate productionDate;
     private LocalDate expiryDate;
     private Long purchaseInboundId;
     private Long purchaseInboundItemId;
+    private Long purchaseInboundReceiptBatchId;
     private String sourceType;
     private Long sourceId;
 
@@ -37,6 +39,14 @@ public class StockIncreaseCommand {
 
     public void setPurchasePrice(BigDecimal purchasePrice) {
         this.purchasePrice = purchasePrice;
+    }
+
+    public BigDecimal getCostPrice() {
+        return costPrice;
+    }
+
+    public void setCostPrice(BigDecimal costPrice) {
+        this.costPrice = costPrice;
     }
 
     public LocalDate getProductionDate() {
@@ -69,6 +79,14 @@ public class StockIncreaseCommand {
 
     public void setPurchaseInboundItemId(Long purchaseInboundItemId) {
         this.purchaseInboundItemId = purchaseInboundItemId;
+    }
+
+    public Long getPurchaseInboundReceiptBatchId() {
+        return purchaseInboundReceiptBatchId;
+    }
+
+    public void setPurchaseInboundReceiptBatchId(Long purchaseInboundReceiptBatchId) {
+        this.purchaseInboundReceiptBatchId = purchaseInboundReceiptBatchId;
     }
 
     public String getSourceType() {

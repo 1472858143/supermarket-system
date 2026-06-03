@@ -130,6 +130,14 @@ public class CategoryMapper {
         );
     }
 
+    public void updateSortOrder(Long id, Integer sortOrder) {
+        jdbcTemplate.update(
+                "UPDATE category SET sort_order = ? WHERE id = ?",
+                sortOrder,
+                id
+        );
+    }
+
     public void delete(Long id) {
         jdbcTemplate.update("DELETE FROM category WHERE id = ?", id);
     }

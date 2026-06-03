@@ -28,7 +28,7 @@ public class StockBatchService {
     private static final String CHANGE_TYPE_BATCH_STATUS = "BATCH_STATUS";
     private static final String CHANGE_TYPE_DAMAGE = "DAMAGE";
     private static final String CHANGE_TYPE_OUTBOUND = "OUTBOUND";
-    private static final String SOURCE_TYPE_PURCHASE_INBOUND_ITEM = "PURCHASE_INBOUND_ITEM";
+    private static final String SOURCE_TYPE_PURCHASE_INBOUND_RECEIPT_BATCH = "PURCHASE_INBOUND_RECEIPT_BATCH";
     private static final String SOURCE_TYPE_BATCH_LOCK = "BATCH_LOCK";
     private static final String SOURCE_TYPE_BATCH_UNLOCK = "BATCH_UNLOCK";
     private static final String SOURCE_TYPE_BATCH_DAMAGE = "BATCH_DAMAGE";
@@ -54,15 +54,21 @@ public class StockBatchService {
 
     @Transactional
     public StockBatch createFromPurchaseInboundItem(StockBatchCreateCommand command) {
+        return createFromPurchaseInboundReceiptBatch(command);
+    }
+
+    @Transactional
+    public StockBatch createFromPurchaseInboundReceiptBatch(StockBatchCreateCommand command) {
         validateCreateCommand(command);
         StockBatch batch = new StockBatch();
         batch.setBatchNo(nextBatchNo());
         batch.setSkuId(command.getSkuId());
-        batch.setPurchaseInboundItemId(command.getPurchaseInboundItemId());
+        batch.setPurchaseInboundReceiptBatchId(command.getPurchaseInboundReceiptBatchId());
         batch.setInitialQuantity(command.getBaseQuantity());
         batch.setQuantity(command.getBaseQuantity());
         batch.setStatus(STATUS_AVAILABLE);
         batch.setPurchasePrice(command.getPurchasePrice());
+        batch.setCostPrice(command.getCostPrice());
         batch.setProductionDate(command.getProductionDate());
         batch.setShelfLifeDays(command.getShelfLifeDays());
         batch.setExpireDate(command.getProductionDate().plusDays(command.getShelfLifeDays()));
@@ -80,7 +86,11 @@ public class StockBatchService {
 
     @Transactional
     public void writePurchaseInboundLog(StockBatch batch) {
-        writePurchaseInboundLog(batch, SOURCE_TYPE_PURCHASE_INBOUND_ITEM, batch.getPurchaseInboundItemId());
+        writePurchaseInboundLog(
+                batch,
+                SOURCE_TYPE_PURCHASE_INBOUND_RECEIPT_BATCH,
+                batch.getPurchaseInboundReceiptBatchId()
+        );
     }
 
     public void writePurchaseInboundLog(StockBatch batch, String sourceType, Long sourceId) {
@@ -347,14 +357,17 @@ public class StockBatchService {
         if (command.getSkuId() == null) {
             throw new BusinessException("SKU ID不能为空");
         }
-        if (command.getPurchaseInboundItemId() == null) {
-            throw new BusinessException("采购入库明细ID不能为空");
+        if (command.getPurchaseInboundReceiptBatchId() == null) {
+            throw new BusinessException("采购入库执行批次ID不能为空");
         }
         if (command.getBaseQuantity() == null || command.getBaseQuantity() <= 0) {
             throw new BusinessException("批次数量必须大于0");
         }
         if (command.getPurchasePrice() == null || command.getPurchasePrice().compareTo(BigDecimal.ZERO) < 0) {
             throw new BusinessException("批次进价不能小于0");
+        }
+        if (command.getCostPrice() == null || command.getCostPrice().compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException("批次成本价不能小于0");
         }
         if (command.getProductionDate() == null) {
             throw new BusinessException("生产日期不能为空");

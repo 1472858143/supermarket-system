@@ -32,6 +32,11 @@ Supplier -> SupplierSku -> PurchaseInbound -> PurchaseInboundItem -> StockBatch 
 14. 报损可以作用于可用、锁定、过期三类仍在仓内的实物库存。报损后要从对应状态量和总库存中扣减。
 15. 部分报损只扣数量，批次状态保持。整批报损扣到 0，状态才变为 `DAMAGED`。
 16. 盘点调整必须落到批次。批次是事实来源，库存汇总是结果，调整后要同步重算汇总。
+17. 采用主表累计方案：`purchase_inbound` 主表落库累计实收数量和累计实收金额。
+18. 执行入库事务中，更新计划明细累计实收后，必须同步滚动更新采购单主表累计实收字段。
+19. `stock_batch` 的价格快照明确从 `purchase_inbound_receipt_batch` 拷贝。
+20. 执行入库导致的 `PARTIALLY_INBOUNDED` 和 `INBOUNDED` 状态变化不写审批日志，由 receipt、库存日志和批次日志审计。
+21. `SUBMIT / APPROVE / RETURN / CANCEL / CLOSE` 仍写入审批日志。
 
 ## 方案选择
 
@@ -120,11 +125,13 @@ PARTIALLY_INBOUNDED -> CLOSED, 剩余不再收货
 | `close_time` | 关闭时间 |
 | `close_reason` | 关闭原因 |
 | `planned_total_quantity` | 计划基础数量合计 |
-| `inbounded_total_quantity` | 累计实收基础数量合计 |
+| `inbound_total_quantity` | 累计实收基础数量合计，落库保存 |
 | `planned_total_amount` | 计划金额合计 |
-| `inbounded_total_amount` | 累计实收金额合计 |
+| `inbound_total_amount` | 累计实收金额合计，落库保存 |
 
-现有 `total_quantity` 可迁移为 `planned_total_quantity`。现有 `total_amount` 可迁移为 `planned_total_amount`。为兼容前端和旧查询，可短期保留旧字段并映射，后续再清理。
+确认 `purchase_inbound` 相关表为空，采用破坏式迁移：直接将 `total_quantity` 改名为 `planned_total_quantity`、`total_amount` 改名为 `planned_total_amount`，不保留旧字段，不做双写兼容。
+
+累计实收采用主表落库方案。每次执行入库时，先更新对应计划明细的累计实收数量和金额，再在同一事务内滚动更新 `purchase_inbound.inbound_total_quantity` 和 `purchase_inbound.inbound_total_amount`，避免列表页和状态判断依赖运行时聚合。
 
 ### purchase_inbound_item
 
@@ -177,7 +184,9 @@ PARTIALLY_INBOUNDED -> CLOSED, 剩余不再收货
 | `remark` | 备注 |
 | `create_time` | 操作时间 |
 
-采购单主表只保留当前状态和最近动作快照，完整历史通过该日志表追溯。
+采购单主表只保留当前状态和最近动作快照，审批和人工状态动作历史通过该日志表追溯。
+
+该表只记录 `SUBMIT / APPROVE / RETURN / CANCEL / CLOSE`。执行入库导致的 `APPROVED -> PARTIALLY_INBOUNDED`、`APPROVED -> INBOUNDED`、`PARTIALLY_INBOUNDED -> INBOUNDED` 状态变化不写入审批日志，由 `purchase_inbound_receipt`、库存日志和批次日志审计。
 
 ### purchase_inbound_receipt
 
@@ -187,7 +196,7 @@ PARTIALLY_INBOUNDED -> CLOSED, 剩余不再收货
 
 | 字段 | 含义 |
 | --- | --- |
-| `receipt_no` | 实际入库单号 |
+| `receipt_no` | 实际入库单号，格式 `PIR{YYYYMMDD}{NNNN}` |
 | `purchase_inbound_id` | 采购计划单 ID |
 | `operator_user_id` | 执行入库人 ID 快照 |
 | `operator_username` | 执行入库人用户名快照 |
@@ -220,16 +229,18 @@ PARTIALLY_INBOUNDED -> CLOSED, 剩余不再收货
 | `supplier_sku_name_snapshot` | 供应商侧商品名称快照 |
 | `supplier_spec_snapshot` | 供应商侧规格快照 |
 
+价格快照精度与计划明细一致：`purchase_price_snapshot` 用 `DECIMAL(18,6)`，`cost_price_snapshot` 用 `DECIMAL(18,8)`，`amount` 用 `DECIMAL(18,6)`。
+
 ### stock_batch
 
 库存批次由实际入库批次生成。
 
 调整规则：
 
-1. 移除 `purchase_inbound_item_id` 的唯一约束。
-2. 新增 `purchase_inbound_receipt_batch_id`。
-3. 对 `purchase_inbound_receipt_batch_id` 建唯一约束，保证一个实际入库批次只生成一个库存批次。
-4. 可保留 `purchase_inbound_item_id` 作为反查计划明细的冗余关联，但不再唯一。
+1. 移除 `purchase_inbound_item_id` 列及其唯一约束。库存批次以 `purchase_inbound_receipt_batch_id` 作为唯一采购入库来源关联，计划明细通过 receipt batch 反查，默认不在 stock_batch 冗余保留。
+2. 新增 `purchase_inbound_receipt_batch_id`，并建唯一约束，保证一个实际入库批次只生成一个库存批次。
+3. `purchase_price` 升级为 `DECIMAL(18,6)`，新增 `cost_price DECIMAL(18,8)`，与计划明细和 receipt batch 的价格精度保持一致，避免出库成本换算时累计误差。
+4. `purchase_price` 和 `cost_price` 快照必须从 `purchase_inbound_receipt_batch.purchase_price_snapshot` 与 `purchase_inbound_receipt_batch.cost_price_snapshot` 拷贝，不从执行入库请求或 SKU 当前价格重新取值。
 
 ### stock
 
@@ -246,7 +257,7 @@ PARTIALLY_INBOUNDED -> CLOSED, 剩余不再收货
 | `min_stock` | 库存下限，和 `available_quantity` 比较 |
 | `max_stock` | 库存上限，和 `total_quantity` 比较 |
 
-现有 `quantity` 可迁移为 `total_quantity` 和 `available_quantity` 的初始值。若现有批次状态数据可靠，应优先按 `stock_batch` 事实重算 stock 汇总。
+旧 `stock.quantity` 语义为总库存（含可用、锁定、过期），迁移时只能作为 `total_quantity` 的来源。`available_quantity / locked_quantity / expired_quantity` 必须从 `stock_batch` 按批次状态聚合重算，不能直接复用旧 `quantity`，否则会把锁定和过期量误计入可用。
 
 ## API 设计
 
@@ -298,8 +309,17 @@ PARTIALLY_INBOUNDED -> CLOSED, 剩余不再收货
 | --- | --- |
 | `PurchaseInboundService` | 采购计划、状态流、审批动作、计划校验 |
 | `PurchaseInboundReceiptService` | 执行入库、写 receipt、写 receipt batch、推进累计入库进度 |
-| `StockService` | 按实际入库批次增加可用库存，维护 SKU 汇总库存 |
-| `StockBatchService` | 库存批次创建、FEFO 消费、过期、锁定、解锁、报损、关闭 |
+| `StockService` | 按实际入库批次增加 `available_quantity` 和 `total_quantity`；出库经 `decrease` 同步减少二者；维护 SKU 汇总库存 |
+| `StockBatchService` | 库存批次创建、FEFO 消费、过期、锁定、解锁、报损、关闭，并在同一事务内同步 stock 结构量 |
+| `StockCheckService` | 盘点落到批次，完成后按 stock_batch 状态重算 SKU 汇总 |
+| `OutboundService` | 触发出库，经 `StockService.decrease` 同步扣减 `available_quantity` 和 `total_quantity` |
+
+库存汇总维护边界（结构化数量的关键约束）：
+
+1. `StockBatchService` 执行 `lock / unlock / markExpiredBatches / damage` 时不得只更新 `stock_batch`，必须在同一事务内锁定对应 `stock` 行，并同步维护 `total_quantity / available_quantity / locked_quantity / expired_quantity`。
+2. 锁定、解锁、过期扫描不改变 `total_quantity`，只在 `available / locked / expired` 之间转移；报损同时扣减对应状态量和 `total_quantity`。
+3. `StockService.decrease`（出库）同步减少 `available_quantity` 和 `total_quantity`。
+4. `StockCheckService` 盘点完成后，按 `stock_batch` 各状态分别聚合，重算 `total / available / locked / expired`，不直接改单列。
 
 执行入库事务顺序：
 
@@ -308,12 +328,13 @@ PARTIALLY_INBOUNDED -> CLOSED, 剩余不再收货
 3. 校验每个实收批次不超剩余计划量。
 4. 写 `purchase_inbound_receipt`。
 5. 逐条写 `purchase_inbound_receipt_batch`。
-6. 逐条生成 `stock_batch`，状态为 `AVAILABLE`。
+6. 逐条生成 `stock_batch`，状态为 `AVAILABLE`，价格快照从对应 `purchase_inbound_receipt_batch` 拷贝。
 7. 同步 `stock.available_quantity += baseQuantity`。
 8. 同步 `stock.total_quantity += baseQuantity`。
 9. 写库存日志和批次日志。
 10. 更新计划明细累计实收。
-11. 根据累计进度更新采购单状态。部分为 `PARTIALLY_INBOUNDED`，全部为 `INBOUNDED`。
+11. 同步滚动更新 `purchase_inbound.inbound_total_quantity` 和 `purchase_inbound.inbound_total_amount`。
+12. 根据累计进度更新采购单状态，按计划明细逐条判断：当且仅当所有 `purchase_inbound_item` 的 `inbounded_base_quantity` 都达到各自的 `planned_base_quantity` 时，整单进入 `INBOUNDED`；否则进入或保持 `PARTIALLY_INBOUNDED`。该入库进度状态变化不写 `purchase_inbound_approval_log`。
 
 ## 库存同步规则
 
@@ -424,8 +445,8 @@ SQL 迁移验收：
 
 1. 旧 `purchase_inbound.total_quantity` 正确迁移为 `planned_total_quantity`。
 2. 旧 `purchase_inbound.total_amount` 正确迁移为 `planned_total_amount`。
-3. 旧 `stock.quantity` 能按批次事实或现有数量迁移为 `total_quantity` 和 `available_quantity`。
-4. `stock_batch.purchase_inbound_item_id` 唯一约束被移除。
+3. 旧 `stock.quantity` 仅迁移为 `total_quantity`；`available / locked / expired` 由 `stock_batch` 按状态聚合得到，三者之和等于 `total_quantity`。
+4. `stock_batch.purchase_inbound_item_id` 列被移除，来源关联改为 `purchase_inbound_receipt_batch_id`。
 5. `stock_batch.purchase_inbound_receipt_batch_id` 唯一约束生效。
 6. 新增外键和索引满足计划、实际入库、库存批次之间的追溯。
 

@@ -4,9 +4,11 @@ import com.supermarket.inventory.auth.security.CurrentUser;
 import com.supermarket.inventory.auth.security.CurrentUserContext;
 import com.supermarket.inventory.common.exception.BusinessException;
 import com.supermarket.inventory.common.response.PageResult;
+import com.supermarket.inventory.purchaseinbound.dto.PurchaseInboundDecisionRequest;
 import com.supermarket.inventory.purchaseinbound.dto.PurchaseInboundItemRequest;
 import com.supermarket.inventory.purchaseinbound.dto.PurchaseInboundRequest;
 import com.supermarket.inventory.purchaseinbound.entity.PurchaseInbound;
+import com.supermarket.inventory.purchaseinbound.entity.PurchaseInboundApprovalLog;
 import com.supermarket.inventory.purchaseinbound.entity.PurchaseInboundItem;
 import com.supermarket.inventory.purchaseinbound.mapper.PurchaseInboundMapper;
 import com.supermarket.inventory.purchaseinbound.vo.PurchaseInboundItemVO;
@@ -15,12 +17,15 @@ import com.supermarket.inventory.sku.entity.Sku;
 import com.supermarket.inventory.sku.service.SkuUnitResolver;
 import com.supermarket.inventory.stock.dto.StockIncreaseCommand;
 import com.supermarket.inventory.stock.service.StockService;
+import com.supermarket.inventory.supplier.entity.Supplier;
+import com.supermarket.inventory.supplier.entity.SupplierSku;
+import com.supermarket.inventory.supplier.mapper.SupplierMapper;
+import com.supermarket.inventory.supplier.service.SupplierSkuService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DuplicateKeyException;
@@ -34,8 +39,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.inOrder;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -51,11 +57,23 @@ class PurchaseInboundServiceTest {
     @Mock
     private StockService stockService;
 
+    @Mock
+    private SupplierMapper supplierMapper;
+
+    @Mock
+    private SupplierSkuService supplierSkuService;
+
     private PurchaseInboundService purchaseInboundService;
 
     @BeforeEach
     void setUp() {
-        purchaseInboundService = new PurchaseInboundService(purchaseInboundMapper, skuUnitResolver, stockService);
+        purchaseInboundService = new PurchaseInboundService(
+                purchaseInboundMapper,
+                skuUnitResolver,
+                stockService,
+                supplierMapper,
+                supplierSkuService
+        );
         CurrentUserContext.set(new CurrentUser(1L, "admin", List.of("ADMIN")));
     }
 
@@ -81,8 +99,7 @@ class PurchaseInboundServiceTest {
     @Test
     void getById_returnsInboundWithItems() {
         PurchaseInboundVO order = vo(100L);
-        PurchaseInboundItemVO item = new PurchaseInboundItemVO();
-        item.setId(1L);
+        PurchaseInboundItemVO item = itemVO(10L, 48, 0);
         when(purchaseInboundMapper.findById(100L)).thenReturn(Optional.of(order));
         when(purchaseInboundMapper.findItemsByInboundId(100L)).thenReturn(List.of(item));
 
@@ -102,306 +119,306 @@ class PurchaseInboundServiceTest {
     }
 
     @Test
-    void create_writesPurchaseInboundAndIncreasesStockWithPurchaseInboundLogType() {
+    void createDraft_savesPlanWithoutIncreasingStock() {
         String todayPrefix = "PI" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
-        when(skuUnitResolver.resolve(20L, null))
-                .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(20L), "bottle", 1));
+        mockEnabledSupplier(7L);
+        mockEnabledBinding(7L, 20L, 1);
+        when(skuUnitResolver.resolve(20L, "box"))
+                .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(20L), "box", 24));
         when(purchaseInboundMapper.findMaxOrderNo(todayPrefix + "%")).thenReturn(null);
         when(purchaseInboundMapper.insertInbound(any(PurchaseInbound.class))).thenReturn(100L);
-        when(purchaseInboundMapper.insertItem(any(PurchaseInboundItem.class))).thenAnswer(invocation -> {
-            PurchaseInboundItem item = invocation.getArgument(0);
-            item.setId(1000L);
-            return 1000L;
-        });
+        when(purchaseInboundMapper.insertItem(any(PurchaseInboundItem.class))).thenReturn(10L);
         when(purchaseInboundMapper.findById(100L)).thenReturn(Optional.of(vo(100L)));
 
-        PurchaseInboundVO result = purchaseInboundService.create(request(List.of(item(20L, 5, null, "12.50")), "arrived"));
+        PurchaseInboundVO result = purchaseInboundService.createDraft(request(List.of(item(20L, 2, "box", "48.00")), "draft"));
 
         assertThat(result.getId()).isEqualTo(100L);
-
         ArgumentCaptor<PurchaseInbound> inboundCaptor = ArgumentCaptor.forClass(PurchaseInbound.class);
         verify(purchaseInboundMapper).insertInbound(inboundCaptor.capture());
-        PurchaseInbound inbound = inboundCaptor.getValue();
-        assertThat(inbound.getOrderNo()).startsWith(todayPrefix);
-        assertThat(inbound.getOrderNo()).endsWith("001");
-        assertThat(inbound.getTotalQuantity()).isEqualTo(5);
-        assertThat(inbound.getTotalAmount()).isEqualByComparingTo("62.50");
-        assertThat(inbound.getStatus()).isEqualTo("COMPLETED");
-        assertThat(inbound.getOperator()).isEqualTo("admin");
-        assertThat(inbound.getRemark()).isEqualTo("arrived");
+        assertThat(inboundCaptor.getValue().getStatus()).isEqualTo("DRAFT");
+        assertThat(inboundCaptor.getValue().getCreatorUserId()).isEqualTo(1L);
+        assertThat(inboundCaptor.getValue().getCreatorUsername()).isEqualTo("admin");
+        assertThat(inboundCaptor.getValue().getPlannedTotalQuantity()).isEqualTo(48);
+        assertThat(inboundCaptor.getValue().getInboundTotalQuantity()).isEqualTo(0);
+        assertThat(inboundCaptor.getValue().getPlannedTotalAmount()).isEqualByComparingTo("96.00");
+        verify(stockService, never()).increase(any(StockIncreaseCommand.class));
+    }
+
+    @Test
+    void createDraft_capturesSupplierSkuSnapshotsOnItems() {
+        mockEnabledSupplier(7L);
+        SupplierSku binding = binding(7L, 20L, 1);
+        binding.setId(300L);
+        binding.setSupplierSkuCode("SUP-20");
+        binding.setSupplierSkuName("供应商可乐");
+        binding.setSupplierSpec("24瓶/箱");
+        when(supplierSkuService.requireEnabledBinding(7L, 20L)).thenReturn(binding);
+        when(skuUnitResolver.resolve(20L, "box"))
+                .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(20L), "box", 24));
+        when(purchaseInboundMapper.insertInbound(any(PurchaseInbound.class))).thenReturn(100L);
+        when(purchaseInboundMapper.insertItem(any(PurchaseInboundItem.class))).thenReturn(10L);
+        when(purchaseInboundMapper.findById(100L)).thenReturn(Optional.of(vo(100L)));
+
+        purchaseInboundService.createDraft(request(List.of(item(20L, 2, "box", "48.00")), "draft"));
 
         ArgumentCaptor<PurchaseInboundItem> itemCaptor = ArgumentCaptor.forClass(PurchaseInboundItem.class);
         verify(purchaseInboundMapper).insertItem(itemCaptor.capture());
         PurchaseInboundItem savedItem = itemCaptor.getValue();
-        assertThat(savedItem.getPurchaseInboundId()).isEqualTo(100L);
-        assertThat(savedItem.getId()).isEqualTo(1000L);
-        assertThat(savedItem.getSkuId()).isEqualTo(20L);
-        assertThat(savedItem.getQuantity()).isEqualTo(5);
-        assertThat(savedItem.getUnit()).isEqualTo("bottle");
-        assertThat(savedItem.getConversionRate()).isEqualTo(1);
-        assertThat(savedItem.getBaseQuantity()).isEqualTo(5);
-        assertThat(savedItem.getPurchasePrice()).isEqualByComparingTo("12.50");
-        assertThat(savedItem.getCostPrice()).isEqualByComparingTo("12.5000");
-        assertThat(savedItem.getAmount()).isEqualByComparingTo("62.50");
-
-        ArgumentCaptor<StockIncreaseCommand> commandCaptor = ArgumentCaptor.forClass(StockIncreaseCommand.class);
-        verify(stockService).increase(commandCaptor.capture());
-        StockIncreaseCommand command = commandCaptor.getValue();
-        assertThat(command.getSkuId()).isEqualTo(20L);
-        assertThat(command.getQuantity()).isEqualTo(5);
-        assertThat(command.getPurchaseInboundId()).isEqualTo(100L);
-        assertThat(command.getPurchaseInboundItemId()).isEqualTo(1000L);
-        assertThat(command.getPurchasePrice()).isEqualByComparingTo("12.50");
-        assertThat(command.getProductionDate()).isEqualTo(LocalDate.of(2026, 6, 1));
-        assertThat(command.getExpiryDate()).isEqualTo(LocalDate.of(2026, 11, 28));
-        assertThat(command.getSourceType()).isEqualTo("PURCHASE_INBOUND_ITEM");
-        assertThat(command.getSourceId()).isEqualTo(1000L);
-
-        InOrder inOrder = inOrder(purchaseInboundMapper, stockService);
-        inOrder.verify(purchaseInboundMapper).insertInbound(any(PurchaseInbound.class));
-        inOrder.verify(purchaseInboundMapper).insertItem(any(PurchaseInboundItem.class));
-        inOrder.verify(stockService).increase(any(StockIncreaseCommand.class));
+        assertThat(savedItem.getSupplierSkuId()).isEqualTo(300L);
+        assertThat(savedItem.getSupplierSkuCodeSnapshot()).isEqualTo("SUP-20");
+        assertThat(savedItem.getSupplierSkuNameSnapshot()).isEqualTo("供应商可乐");
+        assertThat(savedItem.getSupplierSpecSnapshot()).isEqualTo("24瓶/箱");
+        assertThat(savedItem.getPlannedQuantity()).isEqualTo(2);
+        assertThat(savedItem.getPlannedBaseQuantity()).isEqualTo(48);
+        assertThat(savedItem.getInboundedBaseQuantity()).isEqualTo(0);
+        assertThat(savedItem.getInboundedAmount()).isEqualByComparingTo("0.000000");
+        assertThat(savedItem.getPlannedAmount()).isEqualByComparingTo("96.00");
     }
 
     @Test
-    void create_usesResolvedConversionRateAndNextOrderNoForMultipleItems() {
-        String todayPrefix = "PI" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+    void createDraft_rejectsNegativePurchasePriceAtServiceLayerBeforeWritingOrder() {
+        mockEnabledSupplier(7L);
+        mockEnabledBinding(7L, 20L, 1);
         when(skuUnitResolver.resolve(20L, "box"))
                 .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(20L), "box", 24));
-        when(skuUnitResolver.resolve(21L, "pack"))
-                .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(21L), "pack", 5));
-        when(purchaseInboundMapper.findMaxOrderNo(todayPrefix + "%")).thenReturn(todayPrefix + "009");
-        when(purchaseInboundMapper.insertInbound(any(PurchaseInbound.class))).thenReturn(101L);
-        when(purchaseInboundMapper.insertItem(any(PurchaseInboundItem.class))).thenAnswer(invocation -> {
-            PurchaseInboundItem item = invocation.getArgument(0);
-            long id = item.getSkuId().equals(20L) ? 1001L : 1002L;
-            item.setId(id);
-            return id;
-        });
-        when(purchaseInboundMapper.findById(101L)).thenReturn(Optional.of(vo(101L)));
 
-        PurchaseInboundVO result = purchaseInboundService.create(request(List.of(
-                item(20L, 2, "box", "48.00"),
-                item(21L, 3, "pack", "10.00")
-        ), null));
+        assertThatThrownBy(() -> purchaseInboundService.createDraft(request(List.of(item(20L, 1, "box", "-0.01")), "draft")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("采购单价不能小于0");
 
-        assertThat(result.getId()).isEqualTo(101L);
+        verify(purchaseInboundMapper, never()).insertInbound(any(PurchaseInbound.class));
+        verify(purchaseInboundMapper, never()).insertItem(any(PurchaseInboundItem.class));
+        verify(stockService, never()).increase(any(StockIncreaseCommand.class));
+    }
+
+    @Test
+    void createDraft_calculatesCostPriceWithEightDecimalPlaces() {
+        mockEnabledSupplier(7L);
+        mockEnabledBinding(7L, 20L, 1);
+        when(skuUnitResolver.resolve(20L, "box"))
+                .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(20L), "box", 3));
+        when(purchaseInboundMapper.insertInbound(any(PurchaseInbound.class))).thenReturn(100L);
+        when(purchaseInboundMapper.insertItem(any(PurchaseInboundItem.class))).thenReturn(10L);
+        when(purchaseInboundMapper.findById(100L)).thenReturn(Optional.of(vo(100L)));
+
+        purchaseInboundService.createDraft(request(List.of(item(20L, 1, "box", "10.00")), "draft"));
+
+        ArgumentCaptor<PurchaseInboundItem> itemCaptor = ArgumentCaptor.forClass(PurchaseInboundItem.class);
+        verify(purchaseInboundMapper).insertItem(itemCaptor.capture());
+        assertThat(itemCaptor.getValue().getCostPrice()).isEqualByComparingTo("3.33333333");
+    }
+
+    @Test
+    void submit_writesApprovalLogAndDoesNotIncreaseStock() {
+        PurchaseInboundVO order = vo(100L);
+        order.setStatus("DRAFT");
+        when(purchaseInboundMapper.findByIdForUpdate(100L)).thenReturn(Optional.of(order));
+        when(purchaseInboundMapper.findItemsByInboundId(100L)).thenReturn(List.of(itemVO(10L, 48, 0)));
+        when(purchaseInboundMapper.findById(100L)).thenReturn(Optional.of(vo(100L)));
+
+        purchaseInboundService.submit(100L);
+
+        verify(purchaseInboundMapper).updateStatusForSubmit(100L, "SUBMITTED", 1L, "admin");
+        verify(purchaseInboundMapper).insertApprovalLog(argThat(log ->
+                "SUBMIT".equals(log.getAction()) &&
+                        "DRAFT".equals(log.getFromStatus()) &&
+                        "SUBMITTED".equals(log.getToStatus())));
+        verify(stockService, never()).increase(any(StockIncreaseCommand.class));
+    }
+
+    @Test
+    void submit_rejectsEmptyItemList() {
+        PurchaseInboundVO order = vo(100L);
+        order.setStatus("DRAFT");
+        when(purchaseInboundMapper.findByIdForUpdate(100L)).thenReturn(Optional.of(order));
+        when(purchaseInboundMapper.findItemsByInboundId(100L)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> purchaseInboundService.submit(100L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("采购计划明细不能为空");
+
+        verify(purchaseInboundMapper, never()).updateStatusForSubmit(any(), any(), any(), any());
+        verify(purchaseInboundMapper, never()).insertApprovalLog(any(PurchaseInboundApprovalLog.class));
+    }
+
+    @Test
+    void approve_writesApprovalLogAndDoesNotIncreaseStock() {
+        PurchaseInboundVO order = vo(100L);
+        order.setStatus("SUBMITTED");
+        when(purchaseInboundMapper.findByIdForUpdate(100L)).thenReturn(Optional.of(order));
+        when(purchaseInboundMapper.findById(100L)).thenReturn(Optional.of(vo(100L)));
+
+        purchaseInboundService.approve(100L);
+
+        verify(purchaseInboundMapper).updateStatusForApprove(100L, "APPROVED", 1L, "admin");
+        verify(purchaseInboundMapper).insertApprovalLog(argThat(log ->
+                "APPROVE".equals(log.getAction()) &&
+                        "SUBMITTED".equals(log.getFromStatus()) &&
+                        "APPROVED".equals(log.getToStatus())));
+        verify(stockService, never()).increase(any(StockIncreaseCommand.class));
+    }
+
+    @Test
+    void returnForModification_writesReturnLogAndKeepsIdentity() {
+        PurchaseInboundDecisionRequest request = decision("价格需确认");
+        PurchaseInboundVO order = vo(100L);
+        order.setStatus("SUBMITTED");
+        when(purchaseInboundMapper.findByIdForUpdate(100L)).thenReturn(Optional.of(order));
+        when(purchaseInboundMapper.findById(100L)).thenReturn(Optional.of(vo(100L)));
+
+        purchaseInboundService.returnForModification(100L, request);
+
+        verify(purchaseInboundMapper).updateStatus(100L, "RETURNED");
+        verify(purchaseInboundMapper).insertApprovalLog(argThat(log ->
+                "RETURN".equals(log.getAction()) &&
+                        "SUBMITTED".equals(log.getFromStatus()) &&
+                        "RETURNED".equals(log.getToStatus()) &&
+                        "价格需确认".equals(log.getReason())));
+    }
+
+    @Test
+    void updatePlan_allowsDraftPlanContentChange() {
+        PurchaseInboundVO order = vo(100L);
+        order.setStatus("DRAFT");
+        when(purchaseInboundMapper.findByIdForUpdate(100L)).thenReturn(Optional.of(order));
+        mockEnabledSupplier(7L);
+        mockEnabledBinding(7L, 20L, 1);
+        when(skuUnitResolver.resolve(20L, "box"))
+                .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(20L), "box", 24));
+        when(purchaseInboundMapper.findById(100L)).thenReturn(Optional.of(vo(100L)));
+
+        purchaseInboundService.updatePlan(100L, request(List.of(item(20L, 3, "box", "48.00")), "changed"));
 
         ArgumentCaptor<PurchaseInbound> inboundCaptor = ArgumentCaptor.forClass(PurchaseInbound.class);
-        verify(purchaseInboundMapper).insertInbound(inboundCaptor.capture());
-        PurchaseInbound inbound = inboundCaptor.getValue();
-        assertThat(inbound.getOrderNo()).isEqualTo(todayPrefix + "010");
-        assertThat(inbound.getTotalQuantity()).isEqualTo(63);
-        assertThat(inbound.getTotalAmount()).isEqualByComparingTo("126.00");
-        assertThat(inbound.getOperator()).isEqualTo("admin");
-
-        ArgumentCaptor<PurchaseInboundItem> itemsCaptor = ArgumentCaptor.forClass(PurchaseInboundItem.class);
-        verify(purchaseInboundMapper, org.mockito.Mockito.times(2)).insertItem(itemsCaptor.capture());
-        List<PurchaseInboundItem> items = itemsCaptor.getAllValues();
-        assertThat(items).hasSize(2);
-        assertThat(items.get(0).getPurchaseInboundId()).isEqualTo(101L);
-        assertThat(items.get(0).getId()).isEqualTo(1001L);
-        assertThat(items.get(0).getSkuId()).isEqualTo(20L);
-        assertThat(items.get(0).getQuantity()).isEqualTo(2);
-        assertThat(items.get(0).getUnit()).isEqualTo("box");
-        assertThat(items.get(0).getConversionRate()).isEqualTo(24);
-        assertThat(items.get(0).getBaseQuantity()).isEqualTo(48);
-        assertThat(items.get(0).getPurchasePrice()).isEqualByComparingTo("48.00");
-        assertThat(items.get(0).getCostPrice()).isEqualByComparingTo("2.0000");
-        assertThat(items.get(0).getAmount()).isEqualByComparingTo("96.00");
-        assertThat(items.get(1).getPurchaseInboundId()).isEqualTo(101L);
-        assertThat(items.get(1).getId()).isEqualTo(1002L);
-        assertThat(items.get(1).getSkuId()).isEqualTo(21L);
-        assertThat(items.get(1).getQuantity()).isEqualTo(3);
-        assertThat(items.get(1).getUnit()).isEqualTo("pack");
-        assertThat(items.get(1).getConversionRate()).isEqualTo(5);
-        assertThat(items.get(1).getBaseQuantity()).isEqualTo(15);
-        assertThat(items.get(1).getPurchasePrice()).isEqualByComparingTo("10.00");
-        assertThat(items.get(1).getCostPrice()).isEqualByComparingTo("2.0000");
-        assertThat(items.get(1).getAmount()).isEqualByComparingTo("30.00");
-
-        ArgumentCaptor<StockIncreaseCommand> commandCaptor = ArgumentCaptor.forClass(StockIncreaseCommand.class);
-        verify(stockService, org.mockito.Mockito.times(2)).increase(commandCaptor.capture());
-        List<StockIncreaseCommand> commands = commandCaptor.getAllValues();
-        assertThat(commands).hasSize(2);
-        assertThat(commands.get(0).getSkuId()).isEqualTo(20L);
-        assertThat(commands.get(0).getQuantity()).isEqualTo(48);
-        assertThat(commands.get(0).getPurchaseInboundId()).isEqualTo(101L);
-        assertThat(commands.get(0).getPurchaseInboundItemId()).isEqualTo(1001L);
-        assertThat(commands.get(0).getPurchasePrice()).isEqualByComparingTo("48.00");
-        assertThat(commands.get(0).getProductionDate()).isEqualTo(LocalDate.of(2026, 6, 1));
-        assertThat(commands.get(0).getExpiryDate()).isEqualTo(LocalDate.of(2026, 11, 28));
-        assertThat(commands.get(0).getSourceType()).isEqualTo("PURCHASE_INBOUND_ITEM");
-        assertThat(commands.get(0).getSourceId()).isEqualTo(1001L);
-        assertThat(commands.get(1).getSkuId()).isEqualTo(21L);
-        assertThat(commands.get(1).getQuantity()).isEqualTo(15);
-        assertThat(commands.get(1).getPurchaseInboundId()).isEqualTo(101L);
-        assertThat(commands.get(1).getPurchaseInboundItemId()).isEqualTo(1002L);
-        assertThat(commands.get(1).getPurchasePrice()).isEqualByComparingTo("10.00");
-        assertThat(commands.get(1).getProductionDate()).isEqualTo(LocalDate.of(2026, 6, 1));
-        assertThat(commands.get(1).getExpiryDate()).isEqualTo(LocalDate.of(2026, 11, 28));
-        assertThat(commands.get(1).getSourceType()).isEqualTo("PURCHASE_INBOUND_ITEM");
-        assertThat(commands.get(1).getSourceId()).isEqualTo(1002L);
+        verify(purchaseInboundMapper).updatePlan(inboundCaptor.capture());
+        assertThat(inboundCaptor.getValue().getId()).isEqualTo(100L);
+        assertThat(inboundCaptor.getValue().getSupplierId()).isEqualTo(7L);
+        assertThat(inboundCaptor.getValue().getPlannedTotalQuantity()).isEqualTo(72);
+        verify(purchaseInboundMapper).deleteItemsByInboundId(100L);
+        verify(purchaseInboundMapper).insertItem(any(PurchaseInboundItem.class));
+        verify(stockService, never()).increase(any(StockIncreaseCommand.class));
     }
 
     @Test
-    void create_rejectsMissingProductionDateBeforeWritingOrder() {
-        PurchaseInboundItemRequest item = item(20L, 1, null, "12.50");
-        item.setProductionDate(null);
-
-        assertThatThrownBy(() -> purchaseInboundService.create(request(List.of(item), null)))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage("生产日期不能为空");
-
-        verify(purchaseInboundMapper, never()).insertInbound(any(PurchaseInbound.class));
-        verify(purchaseInboundMapper, never()).insertItem(any(PurchaseInboundItem.class));
-        verify(stockService, never()).increase(any(), any(Integer.class), any());
-    }
-
-    @Test
-    void create_rejectsMissingShelfLifeDaysBeforeWritingOrder() {
-        PurchaseInboundItemRequest item = item(20L, 1, null, "12.50");
-        item.setShelfLifeDays(null);
-
-        assertThatThrownBy(() -> purchaseInboundService.create(request(List.of(item), null)))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage("保质期天数必须大于0");
-
-        verify(purchaseInboundMapper, never()).insertInbound(any(PurchaseInbound.class));
-        verify(purchaseInboundMapper, never()).insertItem(any(PurchaseInboundItem.class));
-        verify(stockService, never()).increase(any(), any(Integer.class), any());
-    }
-
-    @Test
-    void create_rejectsInvalidShelfLifeDaysBeforeWritingOrder() {
-        PurchaseInboundItemRequest item = item(20L, 1, null, "12.50");
-        item.setShelfLifeDays(0);
-
-        assertThatThrownBy(() -> purchaseInboundService.create(request(List.of(item), null)))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage("保质期天数必须大于0");
-
-        verify(purchaseInboundMapper, never()).insertInbound(any(PurchaseInbound.class));
-        verify(purchaseInboundMapper, never()).insertItem(any(PurchaseInboundItem.class));
-        verify(stockService, never()).increase(any(), any(Integer.class), any());
-    }
-
-    @Test
-    void create_rejectsBaseQuantityOverflowBeforeWritingOrder() {
+    void updatePlan_allowsReturnedPlanToChangeSupplierAndRevalidatesBindings() {
+        PurchaseInboundVO order = vo(100L);
+        order.setStatus("RETURNED");
+        PurchaseInboundRequest request = request(List.of(item(20L, 3, "box", "48.00")), "changed");
+        request.setSupplierId(8L);
+        when(purchaseInboundMapper.findByIdForUpdate(100L)).thenReturn(Optional.of(order));
+        mockEnabledSupplier(8L);
+        mockEnabledBinding(8L, 20L, 2);
         when(skuUnitResolver.resolve(20L, "box"))
-                .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(20L), "box", 2));
+                .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(20L), "box", 24));
+        when(purchaseInboundMapper.findById(100L)).thenReturn(Optional.of(vo(100L)));
 
-        assertThatThrownBy(() -> purchaseInboundService.create(request(
-                List.of(item(20L, Integer.MAX_VALUE, "box", "12.50")),
-                null
-        )))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage("基础单位数量超出范围");
+        purchaseInboundService.updatePlan(100L, request);
 
-        verify(purchaseInboundMapper, never()).insertInbound(any(PurchaseInbound.class));
-        verify(purchaseInboundMapper, never()).insertItem(any(PurchaseInboundItem.class));
-        verify(stockService, never()).increase(any(), any(Integer.class), any());
+        verify(supplierMapper).findById(8L);
+        verify(supplierSkuService).requireEnabledBinding(8L, 20L);
+        verify(purchaseInboundMapper).updatePlan(argThat(inbound ->
+                inbound.getId().equals(100L) && inbound.getSupplierId().equals(8L)));
     }
 
     @Test
-    void create_rejectsPurchasePriceWithTooManyDecimalsBeforeWritingOrder() {
-        when(skuUnitResolver.resolve(20L, "box"))
-                .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(20L), "box", 2));
+    void updatePlan_rejectsStatusesAfterApprovalOrTermination() {
+        for (String status : List.of("APPROVED", "PARTIALLY_INBOUNDED", "INBOUNDED", "CLOSED", "CANCELLED")) {
+            PurchaseInboundVO order = vo(100L);
+            order.setStatus(status);
+            when(purchaseInboundMapper.findByIdForUpdate(100L)).thenReturn(Optional.of(order));
 
-        assertThatThrownBy(() -> purchaseInboundService.create(request(
-                List.of(item(20L, 1, "box", "12.345")),
-                null
-        )))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage("采购单价最多保留2位小数");
-
-        verify(purchaseInboundMapper, never()).insertInbound(any(PurchaseInbound.class));
-        verify(purchaseInboundMapper, never()).insertItem(any(PurchaseInboundItem.class));
-        verify(stockService, never()).increase(any(), any(Integer.class), any());
+            assertThatThrownBy(() -> purchaseInboundService.updatePlan(
+                    100L,
+                    request(List.of(item(20L, 1, null, "12.50")), null)
+            ))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessage("当前采购单状态不允许修改计划");
+        }
     }
 
     @Test
-    void create_rejectsPurchasePriceBeyondSchemaLimitBeforeWritingOrder() {
-        when(skuUnitResolver.resolve(20L, "box"))
-                .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(20L), "box", 2));
+    void cancel_rejectsOrderWithAnyReceipt() {
+        PurchaseInboundDecisionRequest request = decision("不采购");
+        PurchaseInboundVO order = vo(100L);
+        order.setStatus("APPROVED");
+        order.setInboundTotalQuantity(1);
+        when(purchaseInboundMapper.findByIdForUpdate(100L)).thenReturn(Optional.of(order));
 
-        assertThatThrownBy(() -> purchaseInboundService.create(request(
-                List.of(item(20L, 1, "box", "100000000.00")),
-                null
-        )))
+        assertThatThrownBy(() -> purchaseInboundService.cancel(100L, request))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("采购单价超出范围");
-
-        verify(purchaseInboundMapper, never()).insertInbound(any(PurchaseInbound.class));
-        verify(purchaseInboundMapper, never()).insertItem(any(PurchaseInboundItem.class));
-        verify(stockService, never()).increase(any(), any(Integer.class), any());
+                .hasMessage("已有实际入库结果的采购单不能取消");
     }
 
     @Test
-    void create_rejectsLineAmountBeyondSchemaLimitBeforeWritingOrder() {
-        when(skuUnitResolver.resolve(20L, "box"))
-                .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(20L), "box", 1));
+    void cancel_succeedsWhenInboundTotalIsZeroAndWritesCancelAudit() {
+        PurchaseInboundDecisionRequest request = decision("不采购");
+        PurchaseInboundVO order = vo(100L);
+        order.setStatus("APPROVED");
+        order.setInboundTotalQuantity(0);
+        when(purchaseInboundMapper.findByIdForUpdate(100L)).thenReturn(Optional.of(order));
+        when(purchaseInboundMapper.findById(100L)).thenReturn(Optional.of(vo(100L)));
 
-        assertThatThrownBy(() -> purchaseInboundService.create(request(
-                List.of(item(20L, 101, "box", "99999999.99")),
-                null
-        )))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage("采购入库金额超出范围");
+        purchaseInboundService.cancel(100L, request);
 
-        verify(purchaseInboundMapper, never()).insertInbound(any(PurchaseInbound.class));
-        verify(purchaseInboundMapper, never()).insertItem(any(PurchaseInboundItem.class));
-        verify(stockService, never()).increase(any(), any(Integer.class), any());
+        verify(purchaseInboundMapper).updateStatusForCancel(100L, "CANCELLED", 1L, "admin", "不采购");
+        verify(purchaseInboundMapper).insertApprovalLog(argThat(log ->
+                "CANCEL".equals(log.getAction()) &&
+                        "APPROVED".equals(log.getFromStatus()) &&
+                        "CANCELLED".equals(log.getToStatus()) &&
+                        "不采购".equals(log.getReason())));
     }
 
     @Test
-    void create_rejectsTotalAmountBeyondSchemaLimitBeforeWritingOrder() {
-        when(skuUnitResolver.resolve(20L, "box"))
-                .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(20L), "box", 1));
-        when(skuUnitResolver.resolve(21L, "pack"))
-                .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(21L), "pack", 1));
+    void close_requiresPartiallyInboundedOrder() {
+        PurchaseInboundDecisionRequest request = decision("剩余不再收货");
+        PurchaseInboundVO order = vo(100L);
+        order.setStatus("PARTIALLY_INBOUNDED");
+        order.setInboundTotalQuantity(24);
+        order.setPlannedTotalQuantity(48);
+        when(purchaseInboundMapper.findByIdForUpdate(100L)).thenReturn(Optional.of(order));
+        when(purchaseInboundMapper.findById(100L)).thenReturn(Optional.of(vo(100L)));
 
-        assertThatThrownBy(() -> purchaseInboundService.create(request(List.of(
-                item(20L, 100, "box", "50000000.00"),
-                item(21L, 100, "pack", "50000000.00")
-        ), null)))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage("采购入库金额超出范围");
+        purchaseInboundService.close(100L, request);
 
-        verify(purchaseInboundMapper, never()).insertInbound(any(PurchaseInbound.class));
-        verify(purchaseInboundMapper, never()).insertItem(any(PurchaseInboundItem.class));
-        verify(stockService, never()).increase(any(), any(Integer.class), any());
+        verify(purchaseInboundMapper).updateStatusForClose(100L, "CLOSED", 1L, "admin", "剩余不再收货");
+        verify(purchaseInboundMapper).insertApprovalLog(argThat(log -> "CLOSE".equals(log.getAction())));
     }
 
     @Test
-    void create_rejectsInvalidExistingOrderNoSuffixBeforeWritingOrder() {
+    void close_rejectsWithoutAnyReceiptOrAlreadyFullyReceived() {
+        PurchaseInboundVO noReceipt = vo(100L);
+        noReceipt.setStatus("PARTIALLY_INBOUNDED");
+        noReceipt.setInboundTotalQuantity(0);
+        noReceipt.setPlannedTotalQuantity(48);
+        when(purchaseInboundMapper.findByIdForUpdate(100L)).thenReturn(Optional.of(noReceipt));
+
+        assertThatThrownBy(() -> purchaseInboundService.close(100L, decision("剩余不收")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("只有已部分入库且未满计划的采购单可以关闭");
+
+        PurchaseInboundVO fullyReceived = vo(100L);
+        fullyReceived.setStatus("PARTIALLY_INBOUNDED");
+        fullyReceived.setInboundTotalQuantity(48);
+        fullyReceived.setPlannedTotalQuantity(48);
+        when(purchaseInboundMapper.findByIdForUpdate(100L)).thenReturn(Optional.of(fullyReceived));
+
+        assertThatThrownBy(() -> purchaseInboundService.close(100L, decision("剩余不收")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("只有已部分入库且未满计划的采购单可以关闭");
+    }
+
+    @Test
+    void createDraft_translatesDuplicateOrderNoToBusinessExceptionBeforeWritingItems() {
         String todayPrefix = "PI" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
-        when(skuUnitResolver.resolve(20L, null))
-                .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(20L), "bottle", 1));
-        when(purchaseInboundMapper.findMaxOrderNo(todayPrefix + "%")).thenReturn(todayPrefix + "ABC");
-
-        assertThatThrownBy(() -> purchaseInboundService.create(request(
-                List.of(item(20L, 1, null, "12.50")),
-                null
-        )))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage("采购入库单号序号异常");
-
-        verify(purchaseInboundMapper, never()).insertInbound(any(PurchaseInbound.class));
-        verify(purchaseInboundMapper, never()).insertItem(any(PurchaseInboundItem.class));
-        verify(stockService, never()).increase(any(), any(Integer.class), any());
-    }
-
-    @Test
-    void create_translatesDuplicateOrderNoToBusinessExceptionBeforeWritingItemsOrStock() {
-        String todayPrefix = "PI" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+        mockEnabledSupplier(7L);
+        mockEnabledBinding(7L, 20L, 1);
         when(skuUnitResolver.resolve(20L, null))
                 .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(20L), "bottle", 1));
         when(purchaseInboundMapper.findMaxOrderNo(todayPrefix + "%")).thenReturn(null);
         when(purchaseInboundMapper.insertInbound(any(PurchaseInbound.class)))
                 .thenThrow(new DuplicateKeyException("duplicate order_no"));
 
-        assertThatThrownBy(() -> purchaseInboundService.create(request(
+        assertThatThrownBy(() -> purchaseInboundService.createDraft(request(
                 List.of(item(20L, 1, null, "12.50")),
                 null
         )))
@@ -409,11 +426,74 @@ class PurchaseInboundServiceTest {
                 .hasMessage("采购入库单号重复，请重试");
 
         verify(purchaseInboundMapper, never()).insertItem(any(PurchaseInboundItem.class));
-        verify(stockService, never()).increase(any(), any(Integer.class), any());
+        verify(stockService, never()).increase(any(StockIncreaseCommand.class));
+    }
+
+    @Test
+    void createDraft_rejectsSupplierAndBindingProblemsBeforeWritingOrder() {
+        PurchaseInboundRequest missingSupplier = request(List.of(item(20L, 1, null, "12.50")), null);
+        missingSupplier.setSupplierId(null);
+
+        assertThatThrownBy(() -> purchaseInboundService.createDraft(missingSupplier))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("供应商不能为空");
+
+        when(supplierMapper.findById(7L)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> purchaseInboundService.createDraft(request(List.of(item(20L, 1, null, "12.50")), null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("供应商不存在");
+
+        when(supplierMapper.findById(7L)).thenReturn(Optional.of(supplier(7L, 0)));
+        assertThatThrownBy(() -> purchaseInboundService.createDraft(request(List.of(item(20L, 1, null, "12.50")), null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("供应商已停用");
+
+        when(supplierMapper.findById(7L)).thenReturn(Optional.of(supplier(7L, 1)));
+        when(supplierSkuService.requireEnabledBinding(7L, 20L))
+                .thenThrow(new BusinessException("该SKU未绑定当前供应商"));
+        assertThatThrownBy(() -> purchaseInboundService.createDraft(request(List.of(item(20L, 1, null, "12.50")), null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("该SKU未绑定当前供应商");
+
+        verify(purchaseInboundMapper, never()).insertInbound(any(PurchaseInbound.class));
+        verify(stockService, never()).increase(any(StockIncreaseCommand.class));
+    }
+
+    @Test
+    void createDraft_rejectsQuantityAndAmountProblemsBeforeWritingOrder() {
+        mockEnabledSupplier(7L);
+        mockEnabledBinding(7L, 20L, 6);
+        assertThatThrownBy(() -> purchaseInboundService.createDraft(request(List.of(item(20L, 5, null, "12.50")), null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("采购数量不能低于供应商最小采购量");
+
+        mockEnabledBinding(7L, 21L, 1);
+        when(skuUnitResolver.resolve(21L, "box"))
+                .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(21L), "box", 2));
+        assertThatThrownBy(() -> purchaseInboundService.createDraft(request(
+                List.of(item(21L, Integer.MAX_VALUE, "box", "12.50")),
+                null
+        )))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("基础单位数量超出范围");
+
+        mockEnabledBinding(7L, 22L, 1);
+        when(skuUnitResolver.resolve(22L, "box"))
+                .thenReturn(new SkuUnitResolver.ResolvedUnit(sku(22L), "box", 2));
+        assertThatThrownBy(() -> purchaseInboundService.createDraft(request(
+                List.of(item(22L, 1, "box", "12.345")),
+                null
+        )))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("采购单价最多保留2位小数");
+
+        verify(purchaseInboundMapper, never()).insertInbound(any(PurchaseInbound.class));
+        verify(stockService, never()).increase(any(StockIncreaseCommand.class));
     }
 
     private PurchaseInboundRequest request(List<PurchaseInboundItemRequest> items, String remark) {
         PurchaseInboundRequest request = new PurchaseInboundRequest();
+        request.setSupplierId(7L);
         request.setItems(items);
         request.setRemark(remark);
         return request;
@@ -430,10 +510,48 @@ class PurchaseInboundServiceTest {
         return item;
     }
 
+    private PurchaseInboundDecisionRequest decision(String reason) {
+        PurchaseInboundDecisionRequest request = new PurchaseInboundDecisionRequest();
+        request.setReason(reason);
+        return request;
+    }
+
+    private PurchaseInboundItemVO itemVO(Long id, Integer plannedBaseQuantity, Integer inboundedBaseQuantity) {
+        PurchaseInboundItemVO vo = new PurchaseInboundItemVO();
+        vo.setId(id);
+        vo.setPlannedBaseQuantity(plannedBaseQuantity);
+        vo.setInboundedBaseQuantity(inboundedBaseQuantity);
+        return vo;
+    }
+
     private Sku sku(Long id) {
         Sku sku = new Sku();
         sku.setId(id);
         return sku;
+    }
+
+    private Supplier supplier(Long id, Integer status) {
+        Supplier supplier = new Supplier();
+        supplier.setId(id);
+        supplier.setStatus(status);
+        return supplier;
+    }
+
+    private SupplierSku binding(Long supplierId, Long skuId, Integer minPurchaseQuantity) {
+        SupplierSku binding = new SupplierSku();
+        binding.setSupplierId(supplierId);
+        binding.setSkuId(skuId);
+        binding.setMinPurchaseQuantity(minPurchaseQuantity);
+        return binding;
+    }
+
+    private void mockEnabledSupplier(Long supplierId) {
+        when(supplierMapper.findById(supplierId)).thenReturn(Optional.of(supplier(supplierId, 1)));
+    }
+
+    private void mockEnabledBinding(Long supplierId, Long skuId, Integer minPurchaseQuantity) {
+        when(supplierSkuService.requireEnabledBinding(supplierId, skuId))
+                .thenReturn(binding(supplierId, skuId, minPurchaseQuantity));
     }
 
     private PurchaseInboundVO vo(Long id) {
@@ -441,5 +559,4 @@ class PurchaseInboundServiceTest {
         vo.setId(id);
         return vo;
     }
-
 }

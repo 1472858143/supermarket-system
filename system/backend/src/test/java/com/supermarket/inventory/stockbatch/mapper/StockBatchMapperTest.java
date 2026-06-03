@@ -83,18 +83,19 @@ class StockBatchMapperTest {
         verify(connection).prepareStatement(sqlCaptor.capture(), eq(Statement.RETURN_GENERATED_KEYS));
         String sql = sqlCaptor.getValue();
         assertThat(sql).contains("insert into stock_batch");
-        assertThat(sql).contains("batch_no, sku_id, purchase_inbound_item_id, initial_quantity, quantity");
-        assertThat(sql).contains("status, purchase_price, production_date, shelf_life_days, expire_date");
+        assertThat(sql).contains("batch_no, sku_id, purchase_inbound_receipt_batch_id, initial_quantity, quantity");
+        assertThat(sql).contains("status, purchase_price, cost_price, production_date, shelf_life_days, expire_date");
         verify(preparedStatement).setString(1, "SB20260601001");
         verify(preparedStatement).setLong(2, 20L);
-        verify(preparedStatement).setLong(3, 7L);
+        verify(preparedStatement).setLong(3, 300L);
         verify(preparedStatement).setInt(4, 48);
         verify(preparedStatement).setInt(5, 48);
         verify(preparedStatement).setString(6, "AVAILABLE");
-        verify(preparedStatement).setBigDecimal(7, new BigDecimal("48.00"));
-        verify(preparedStatement).setDate(8, Date.valueOf(LocalDate.of(2026, 6, 1)));
-        verify(preparedStatement).setInt(9, 180);
-        verify(preparedStatement).setDate(10, Date.valueOf(LocalDate.of(2026, 11, 28)));
+        verify(preparedStatement).setBigDecimal(7, new BigDecimal("48.000000"));
+        verify(preparedStatement).setBigDecimal(8, new BigDecimal("2.00000000"));
+        verify(preparedStatement).setDate(9, Date.valueOf(LocalDate.of(2026, 6, 1)));
+        verify(preparedStatement).setInt(10, 180);
+        verify(preparedStatement).setDate(11, Date.valueOf(LocalDate.of(2026, 11, 28)));
     }
 
     @Test
@@ -242,11 +243,12 @@ class StockBatchMapperTest {
         when(resultSet.getString("sku_name")).thenReturn("500ml");
         when(resultSet.getString("product_code")).thenReturn("P001");
         when(resultSet.getString("product_name")).thenReturn("Test product");
-        when(resultSet.getLong("purchase_inbound_item_id")).thenReturn(7L);
+        when(resultSet.getLong("purchase_inbound_receipt_batch_id")).thenReturn(300L);
         when(resultSet.getInt("initial_quantity")).thenReturn(48);
         when(resultSet.getInt("quantity")).thenReturn(5);
         when(resultSet.getString("status")).thenReturn("DAMAGED");
-        when(resultSet.getBigDecimal("purchase_price")).thenReturn(new BigDecimal("48.00"));
+        when(resultSet.getBigDecimal("purchase_price")).thenReturn(new BigDecimal("48.000000"));
+        when(resultSet.getBigDecimal("cost_price")).thenReturn(new BigDecimal("2.00000000"));
         when(resultSet.getDate("production_date")).thenReturn(Date.valueOf(LocalDate.of(2026, 6, 1)));
         when(resultSet.getInt("shelf_life_days")).thenReturn(180);
         when(resultSet.getDate("expire_date")).thenReturn(Date.valueOf(LocalDate.of(2026, 11, 28)));
@@ -257,17 +259,20 @@ class StockBatchMapperTest {
                 (com.supermarket.inventory.stockbatch.vo.StockBatchVO) rowMapperCaptor.getValue().mapRow(resultSet, 0);
 
         assertThat(vo.getStatus()).isEqualTo("DAMAGED");
+        assertThat(vo.getPurchaseInboundReceiptBatchId()).isEqualTo(300L);
+        assertThat(vo.getCostPrice()).isEqualByComparingTo("2.00000000");
     }
 
     private StockBatch batch() {
         StockBatch batch = new StockBatch();
         batch.setBatchNo("SB20260601001");
         batch.setSkuId(20L);
-        batch.setPurchaseInboundItemId(7L);
+        batch.setPurchaseInboundReceiptBatchId(300L);
         batch.setInitialQuantity(48);
         batch.setQuantity(48);
         batch.setStatus("AVAILABLE");
-        batch.setPurchasePrice(new BigDecimal("48.00"));
+        batch.setPurchasePrice(new BigDecimal("48.000000"));
+        batch.setCostPrice(new BigDecimal("2.00000000"));
         batch.setProductionDate(LocalDate.of(2026, 6, 1));
         batch.setShelfLifeDays(180);
         batch.setExpireDate(LocalDate.of(2026, 11, 28));

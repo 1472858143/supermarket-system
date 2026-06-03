@@ -16,14 +16,12 @@ public class SkuUsageMapper {
         Long count = jdbcTemplate.queryForObject(
                 """
                 select
-                    (select count(*) from inbound_order where sku_id = ?) +
                     (select count(*) from outbound_order where sku_id = ?) +
                     (select count(*) from stock_check where sku_id = ?) +
                     (select count(*) from stock_log where sku_id = ?) +
                     (select count(*) from purchase_inbound_item where sku_id = ?)
                 """,
                 Long.class,
-                skuId,
                 skuId,
                 skuId,
                 skuId,
@@ -36,9 +34,6 @@ public class SkuUsageMapper {
         Long count = jdbcTemplate.queryForObject(
                 """
                 select
-                    (select count(*) from inbound_order o where exists (
-                        select 1 from sku s where s.product_id = ? and s.id = o.sku_id
-                    )) +
                     (select count(*) from outbound_order o where exists (
                         select 1 from sku s where s.product_id = ? and s.id = o.sku_id
                     )) +
@@ -53,7 +48,6 @@ public class SkuUsageMapper {
                     ))
                 """,
                 Long.class,
-                productId,
                 productId,
                 productId,
                 productId,

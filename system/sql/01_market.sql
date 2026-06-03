@@ -66,17 +66,6 @@ CREATE TABLE stock (
                        CHECK (max_stock >= min_stock)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE inbound_order (
-                               id BIGINT PRIMARY KEY AUTO_INCREMENT,
-                               product_id BIGINT NOT NULL,
-                               quantity INT NOT NULL,
-                               operator VARCHAR(50) NOT NULL,
-                               create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                               CONSTRAINT fk_inbound_product
-                                   FOREIGN KEY (product_id) REFERENCES product(id),
-                               CHECK (quantity > 0)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
 CREATE TABLE outbound_order (
                                 id BIGINT PRIMARY KEY AUTO_INCREMENT,
                                 product_id BIGINT NOT NULL,
@@ -104,7 +93,7 @@ CREATE TABLE stock_check (
 CREATE TABLE stock_log (
                            id BIGINT PRIMARY KEY AUTO_INCREMENT,
                            product_id BIGINT NOT NULL,
-                           change_type VARCHAR(20) NOT NULL COMMENT 'INBOUND / OUTBOUND / CHECK',
+                           change_type VARCHAR(20) NOT NULL COMMENT 'OUTBOUND / CHECK',
                            change_quantity INT NOT NULL,
                            before_quantity INT NOT NULL,
                            after_quantity INT NOT NULL,

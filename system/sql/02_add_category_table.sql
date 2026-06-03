@@ -19,7 +19,6 @@ CREATE TABLE category (
 -- 2a. 删除依赖 product 的外键表数据（开发阶段）
 DELETE FROM stock_log;
 DELETE FROM stock_check;
-DELETE FROM inbound_order;
 DELETE FROM outbound_order;
 DELETE FROM stock;
 DELETE FROM product;

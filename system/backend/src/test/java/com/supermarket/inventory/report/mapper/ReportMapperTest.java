@@ -40,14 +40,16 @@ class ReportMapperTest {
     }
 
     @Test
-    void inboundSummary_sumsBaseQuantity() {
+    void inboundSummary_sumsPurchaseInboundTotalQuantity() {
         reportMapper.inboundSummary();
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         verify(jdbcTemplate).queryForMap(sqlCaptor.capture());
 
         String sql = sqlCaptor.getValue();
-        assertThat(sql).contains("sum(base_quantity)");
+        assertThat(sql).contains("from purchase_inbound");
+        assertThat(sql).contains("sum(total_quantity)");
+        assertThat(sql).doesNotContain("inbound_order");
         assertThat(sql).doesNotContain("sum(quantity)");
     }
 

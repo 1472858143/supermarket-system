@@ -10,10 +10,12 @@ public class StockBatch {
     private String batchNo;
     private Long skuId;
     private Long purchaseInboundItemId;
+    private Long purchaseInboundReceiptBatchId;
     private Integer initialQuantity;
     private Integer quantity;
     private String status = "AVAILABLE";
     private BigDecimal purchasePrice;
+    private BigDecimal costPrice;
     private LocalDate productionDate;
     private Integer shelfLifeDays;
     private LocalDate expireDate;
@@ -52,6 +54,14 @@ public class StockBatch {
         this.purchaseInboundItemId = purchaseInboundItemId;
     }
 
+    public Long getPurchaseInboundReceiptBatchId() {
+        return purchaseInboundReceiptBatchId;
+    }
+
+    public void setPurchaseInboundReceiptBatchId(Long purchaseInboundReceiptBatchId) {
+        this.purchaseInboundReceiptBatchId = purchaseInboundReceiptBatchId;
+    }
+
     public Integer getInitialQuantity() {
         return initialQuantity;
     }
@@ -82,6 +92,14 @@ public class StockBatch {
 
     public void setPurchasePrice(BigDecimal purchasePrice) {
         this.purchasePrice = purchasePrice;
+    }
+
+    public BigDecimal getCostPrice() {
+        return costPrice;
+    }
+
+    public void setCostPrice(BigDecimal costPrice) {
+        this.costPrice = costPrice;
     }
 
     public LocalDate getProductionDate() {

@@ -1,21 +1,9 @@
 -- 05_inbound_outbound_stockcheck_by_sku.sql
--- 阶段 4：入库、出库、盘点单据切换为直接关联 SKU。
--- 前置条件：已经执行 03_add_sku_tables.sql 和 04_stock_by_sku.sql，三张单据表的 sku_id 已回填。
+-- 阶段 4：出库、盘点单据切换为直接关联 SKU。
+-- 前置条件：已经执行 03_add_sku_tables.sql 和 04_stock_by_sku.sql，出库和盘点表的 sku_id 已回填。
 
 USE market;
 
--- ============================================================
--- inbound_order：sku_id 约束强化，移除 product_id
--- ============================================================
-
-ALTER TABLE inbound_order DROP FOREIGN KEY fk_inbound_sku;
-ALTER TABLE inbound_order MODIFY sku_id BIGINT NOT NULL;
-ALTER TABLE inbound_order
-    ADD CONSTRAINT fk_inbound_sku FOREIGN KEY (sku_id) REFERENCES sku(id);
-ALTER TABLE inbound_order DROP FOREIGN KEY fk_inbound_product;
-ALTER TABLE inbound_order DROP COLUMN product_id;
-
--- ============================================================
 -- outbound_order：sku_id 约束强化，移除 product_id
 -- ============================================================
 

@@ -37,6 +37,9 @@ const label = computed(() => {
   if (props.type === 'warning') {
     return props.value === 'LOW' ? '低库存' : props.value === 'HIGH' ? '超上限' : '正常'
   }
+  if (props.type === 'batch') {
+    return props.value === 'DEPLETED' ? '已扣完' : '可用'
+  }
   return props.value || '-'
 })
 
@@ -54,6 +57,9 @@ const className = computed(() => {
   }
   if (props.type === 'warning') {
     return props.value === 'NORMAL' ? 'tag-success' : 'tag-warning'
+  }
+  if (props.type === 'batch') {
+    return props.value === 'DEPLETED' ? 'tag-muted' : 'tag-success'
   }
   return Number(props.value) === 1 ? 'tag-success' : 'tag-muted'
 })

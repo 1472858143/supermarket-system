@@ -53,21 +53,22 @@ class StockBatchServiceTest {
     }
 
     @Test
-    void createFromPurchaseInboundItem_generatesBatchAndCalculatesExpireDate() {
+    void createFromPurchaseInboundReceiptBatch_copiesReceiptBatchSourceAndPrices() {
         String todayPrefix = "SB" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
         when(stockBatchMapper.findMaxBatchNo(todayPrefix + "%")).thenReturn(null);
         when(stockBatchMapper.insertBatch(any(StockBatch.class))).thenReturn(10L);
 
-        StockBatch result = stockBatchService.createFromPurchaseInboundItem(command());
+        StockBatch result = stockBatchService.createFromPurchaseInboundReceiptBatch(command());
 
         assertThat(result.getId()).isEqualTo(10L);
         assertThat(result.getBatchNo()).isEqualTo(todayPrefix + "001");
         assertThat(result.getSkuId()).isEqualTo(20L);
-        assertThat(result.getPurchaseInboundItemId()).isEqualTo(7L);
+        assertThat(result.getPurchaseInboundReceiptBatchId()).isEqualTo(300L);
         assertThat(result.getInitialQuantity()).isEqualTo(48);
         assertThat(result.getQuantity()).isEqualTo(48);
         assertThat(result.getStatus()).isEqualTo("AVAILABLE");
-        assertThat(result.getPurchasePrice()).isEqualByComparingTo("48.00");
+        assertThat(result.getPurchasePrice()).isEqualByComparingTo("48.000000");
+        assertThat(result.getCostPrice()).isEqualByComparingTo("2.00000000");
         assertThat(result.getProductionDate()).isEqualTo(LocalDate.of(2026, 6, 1));
         assertThat(result.getShelfLifeDays()).isEqualTo(180);
         assertThat(result.getExpireDate()).isEqualTo(LocalDate.of(2026, 11, 28));
@@ -79,26 +80,29 @@ class StockBatchServiceTest {
         assertThat(savedBatch.getInitialQuantity()).isEqualTo(48);
         assertThat(savedBatch.getQuantity()).isEqualTo(48);
         assertThat(savedBatch.getStatus()).isEqualTo("AVAILABLE");
+        assertThat(savedBatch.getPurchaseInboundReceiptBatchId()).isEqualTo(300L);
+        assertThat(savedBatch.getPurchasePrice()).isEqualByComparingTo("48.000000");
+        assertThat(savedBatch.getCostPrice()).isEqualByComparingTo("2.00000000");
         assertThat(savedBatch.getExpireDate()).isEqualTo(LocalDate.of(2026, 11, 28));
     }
 
     @Test
-    void createFromPurchaseInboundItem_usesNextSequence() {
+    void createFromPurchaseInboundReceiptBatch_usesNextSequence() {
         String todayPrefix = "SB" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
         when(stockBatchMapper.findMaxBatchNo(todayPrefix + "%")).thenReturn(todayPrefix + "009");
         when(stockBatchMapper.insertBatch(any(StockBatch.class))).thenReturn(11L);
 
-        StockBatch result = stockBatchService.createFromPurchaseInboundItem(command());
+        StockBatch result = stockBatchService.createFromPurchaseInboundReceiptBatch(command());
 
         assertThat(result.getBatchNo()).isEqualTo(todayPrefix + "010");
     }
 
     @Test
-    void createFromPurchaseInboundItem_rejectsInvalidBatchNoSuffix() {
+    void createFromPurchaseInboundReceiptBatch_rejectsInvalidBatchNoSuffix() {
         String todayPrefix = "SB" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
         when(stockBatchMapper.findMaxBatchNo(todayPrefix + "%")).thenReturn(todayPrefix + "ABC");
 
-        assertThatThrownBy(() -> stockBatchService.createFromPurchaseInboundItem(command()))
+        assertThatThrownBy(() -> stockBatchService.createFromPurchaseInboundReceiptBatch(command()))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("库存批次号序号异常");
 
@@ -106,28 +110,28 @@ class StockBatchServiceTest {
     }
 
     @Test
-    void createFromPurchaseInboundItem_translatesDuplicateBatchNo() {
+    void createFromPurchaseInboundReceiptBatch_translatesDuplicateBatchNo() {
         String todayPrefix = "SB" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
         when(stockBatchMapper.findMaxBatchNo(todayPrefix + "%")).thenReturn(null);
         when(stockBatchMapper.insertBatch(any(StockBatch.class)))
                 .thenThrow(new DuplicateKeyException("duplicate batch_no"));
 
-        assertThatThrownBy(() -> stockBatchService.createFromPurchaseInboundItem(command()))
+        assertThatThrownBy(() -> stockBatchService.createFromPurchaseInboundReceiptBatch(command()))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("库存批次号重复，请重试");
     }
 
     @Test
-    void createFromPurchaseInboundItem_rejectsInvalidCommandFields() {
+    void createFromPurchaseInboundReceiptBatch_rejectsInvalidCommandFields() {
         assertInvalidCommand(null, "库存批次创建参数不能为空");
 
         StockBatchCreateCommand missingSkuId = command();
         missingSkuId.setSkuId(null);
         assertInvalidCommand(missingSkuId, "SKU ID不能为空");
 
-        StockBatchCreateCommand missingPurchaseInboundItemId = command();
-        missingPurchaseInboundItemId.setPurchaseInboundItemId(null);
-        assertInvalidCommand(missingPurchaseInboundItemId, "采购入库明细ID不能为空");
+        StockBatchCreateCommand missingPurchaseInboundReceiptBatchId = command();
+        missingPurchaseInboundReceiptBatchId.setPurchaseInboundReceiptBatchId(null);
+        assertInvalidCommand(missingPurchaseInboundReceiptBatchId, "采购入库执行批次ID不能为空");
 
         StockBatchCreateCommand missingBaseQuantity = command();
         missingBaseQuantity.setBaseQuantity(null);
@@ -145,6 +149,14 @@ class StockBatchServiceTest {
         negativePurchasePrice.setPurchasePrice(new BigDecimal("-0.01"));
         assertInvalidCommand(negativePurchasePrice, "批次进价不能小于0");
 
+        StockBatchCreateCommand missingCostPrice = command();
+        missingCostPrice.setCostPrice(null);
+        assertInvalidCommand(missingCostPrice, "批次成本价不能小于0");
+
+        StockBatchCreateCommand negativeCostPrice = command();
+        negativeCostPrice.setCostPrice(new BigDecimal("-0.00000001"));
+        assertInvalidCommand(negativeCostPrice, "批次成本价不能小于0");
+
         StockBatchCreateCommand missingProductionDate = command();
         missingProductionDate.setProductionDate(null);
         assertInvalidCommand(missingProductionDate, "生产日期不能为空");
@@ -161,22 +173,22 @@ class StockBatchServiceTest {
     }
 
     @Test
-    void createFromPurchaseInboundItem_rejectsMissingGeneratedKey() {
+    void createFromPurchaseInboundReceiptBatch_rejectsMissingGeneratedKey() {
         String todayPrefix = "SB" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
         when(stockBatchMapper.findMaxBatchNo(todayPrefix + "%")).thenReturn(null);
         when(stockBatchMapper.insertBatch(any(StockBatch.class))).thenReturn(null);
 
-        assertThatThrownBy(() -> stockBatchService.createFromPurchaseInboundItem(command()))
+        assertThatThrownBy(() -> stockBatchService.createFromPurchaseInboundReceiptBatch(command()))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("库存批次保存失败");
     }
 
     @Test
-    void createFromPurchaseInboundItem_rejectsSequenceBeyondDailyLimit() {
+    void createFromPurchaseInboundReceiptBatch_rejectsSequenceBeyondDailyLimit() {
         String todayPrefix = "SB" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
         when(stockBatchMapper.findMaxBatchNo(todayPrefix + "%")).thenReturn(todayPrefix + "999");
 
-        assertThatThrownBy(() -> stockBatchService.createFromPurchaseInboundItem(command()))
+        assertThatThrownBy(() -> stockBatchService.createFromPurchaseInboundReceiptBatch(command()))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("库存批次号当日序号已达上限");
 
@@ -198,8 +210,8 @@ class StockBatchServiceTest {
         assertThat(log.getChangeQuantity()).isEqualTo(48);
         assertThat(log.getBeforeQuantity()).isEqualTo(0);
         assertThat(log.getAfterQuantity()).isEqualTo(48);
-        assertThat(log.getSourceType()).isEqualTo("PURCHASE_INBOUND_ITEM");
-        assertThat(log.getSourceId()).isEqualTo(7L);
+        assertThat(log.getSourceType()).isEqualTo("PURCHASE_INBOUND_RECEIPT_BATCH");
+        assertThat(log.getSourceId()).isEqualTo(300L);
     }
 
     @Test
@@ -592,7 +604,7 @@ class StockBatchServiceTest {
     }
 
     private void assertInvalidCommand(StockBatchCreateCommand command, String message) {
-        assertThatThrownBy(() -> stockBatchService.createFromPurchaseInboundItem(command))
+        assertThatThrownBy(() -> stockBatchService.createFromPurchaseInboundReceiptBatch(command))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage(message);
     }
@@ -600,9 +612,10 @@ class StockBatchServiceTest {
     private StockBatchCreateCommand command() {
         StockBatchCreateCommand command = new StockBatchCreateCommand();
         command.setSkuId(20L);
-        command.setPurchaseInboundItemId(7L);
+        command.setPurchaseInboundReceiptBatchId(300L);
         command.setBaseQuantity(48);
-        command.setPurchasePrice(new BigDecimal("48.00"));
+        command.setPurchasePrice(new BigDecimal("48.000000"));
+        command.setCostPrice(new BigDecimal("2.00000000"));
         command.setProductionDate(LocalDate.of(2026, 6, 1));
         command.setShelfLifeDays(180);
         return command;
@@ -617,11 +630,12 @@ class StockBatchServiceTest {
         batch.setId(10L);
         batch.setBatchNo("SB20260601001");
         batch.setSkuId(20L);
-        batch.setPurchaseInboundItemId(7L);
+        batch.setPurchaseInboundReceiptBatchId(300L);
         batch.setInitialQuantity(48);
         batch.setQuantity(quantity);
         batch.setStatus(status);
-        batch.setPurchasePrice(new BigDecimal("48.00"));
+        batch.setPurchasePrice(new BigDecimal("48.000000"));
+        batch.setCostPrice(new BigDecimal("2.00000000"));
         batch.setProductionDate(LocalDate.of(2026, 6, 1));
         batch.setShelfLifeDays(180);
         batch.setExpireDate(LocalDate.of(2026, 11, 28));

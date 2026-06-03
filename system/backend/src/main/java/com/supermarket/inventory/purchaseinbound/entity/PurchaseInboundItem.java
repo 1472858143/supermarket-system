@@ -8,13 +8,19 @@ public class PurchaseInboundItem {
     private Long id;
     private Long purchaseInboundId;
     private Long skuId;
-    private Integer quantity;
+    private Long supplierSkuId;
+    private String supplierSkuCodeSnapshot;
+    private String supplierSkuNameSnapshot;
+    private String supplierSpecSnapshot;
+    private Integer plannedQuantity;
     private String unit;
     private Integer conversionRate;
-    private Integer baseQuantity;
+    private Integer plannedBaseQuantity;
+    private Integer inboundedBaseQuantity;
+    private BigDecimal inboundedAmount;
     private BigDecimal purchasePrice;
     private BigDecimal costPrice;
-    private BigDecimal amount;
+    private BigDecimal plannedAmount;
     private LocalDateTime createTime;
 
     public Long getId() {
@@ -41,12 +47,44 @@ public class PurchaseInboundItem {
         this.skuId = skuId;
     }
 
-    public Integer getQuantity() {
-        return quantity;
+    public Long getSupplierSkuId() {
+        return supplierSkuId;
     }
 
-    public void setQuantity(Integer quantity) {
-        this.quantity = quantity;
+    public void setSupplierSkuId(Long supplierSkuId) {
+        this.supplierSkuId = supplierSkuId;
+    }
+
+    public String getSupplierSkuCodeSnapshot() {
+        return supplierSkuCodeSnapshot;
+    }
+
+    public void setSupplierSkuCodeSnapshot(String supplierSkuCodeSnapshot) {
+        this.supplierSkuCodeSnapshot = supplierSkuCodeSnapshot;
+    }
+
+    public String getSupplierSkuNameSnapshot() {
+        return supplierSkuNameSnapshot;
+    }
+
+    public void setSupplierSkuNameSnapshot(String supplierSkuNameSnapshot) {
+        this.supplierSkuNameSnapshot = supplierSkuNameSnapshot;
+    }
+
+    public String getSupplierSpecSnapshot() {
+        return supplierSpecSnapshot;
+    }
+
+    public void setSupplierSpecSnapshot(String supplierSpecSnapshot) {
+        this.supplierSpecSnapshot = supplierSpecSnapshot;
+    }
+
+    public Integer getPlannedQuantity() {
+        return plannedQuantity;
+    }
+
+    public void setPlannedQuantity(Integer plannedQuantity) {
+        this.plannedQuantity = plannedQuantity;
     }
 
     public String getUnit() {
@@ -65,12 +103,28 @@ public class PurchaseInboundItem {
         this.conversionRate = conversionRate;
     }
 
-    public Integer getBaseQuantity() {
-        return baseQuantity;
+    public Integer getPlannedBaseQuantity() {
+        return plannedBaseQuantity;
     }
 
-    public void setBaseQuantity(Integer baseQuantity) {
-        this.baseQuantity = baseQuantity;
+    public void setPlannedBaseQuantity(Integer plannedBaseQuantity) {
+        this.plannedBaseQuantity = plannedBaseQuantity;
+    }
+
+    public Integer getInboundedBaseQuantity() {
+        return inboundedBaseQuantity;
+    }
+
+    public void setInboundedBaseQuantity(Integer inboundedBaseQuantity) {
+        this.inboundedBaseQuantity = inboundedBaseQuantity;
+    }
+
+    public BigDecimal getInboundedAmount() {
+        return inboundedAmount;
+    }
+
+    public void setInboundedAmount(BigDecimal inboundedAmount) {
+        this.inboundedAmount = inboundedAmount;
     }
 
     public BigDecimal getPurchasePrice() {
@@ -89,12 +143,12 @@ public class PurchaseInboundItem {
         this.costPrice = costPrice;
     }
 
-    public BigDecimal getAmount() {
-        return amount;
+    public BigDecimal getPlannedAmount() {
+        return plannedAmount;
     }
 
-    public void setAmount(BigDecimal amount) {
-        this.amount = amount;
+    public void setPlannedAmount(BigDecimal plannedAmount) {
+        this.plannedAmount = plannedAmount;
     }
 
     public LocalDateTime getCreateTime() {
@@ -103,5 +157,29 @@ public class PurchaseInboundItem {
 
     public void setCreateTime(LocalDateTime createTime) {
         this.createTime = createTime;
+    }
+
+    public Integer getQuantity() {
+        return plannedQuantity;
+    }
+
+    public void setQuantity(Integer quantity) {
+        this.plannedQuantity = quantity;
+    }
+
+    public Integer getBaseQuantity() {
+        return plannedBaseQuantity;
+    }
+
+    public void setBaseQuantity(Integer baseQuantity) {
+        this.plannedBaseQuantity = baseQuantity;
+    }
+
+    public BigDecimal getAmount() {
+        return plannedAmount;
+    }
+
+    public void setAmount(BigDecimal amount) {
+        this.plannedAmount = amount;
     }
 }
