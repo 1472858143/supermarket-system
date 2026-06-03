@@ -11,7 +11,10 @@ import com.supermarket.inventory.purchaseinbound.entity.PurchaseInbound;
 import com.supermarket.inventory.purchaseinbound.entity.PurchaseInboundApprovalLog;
 import com.supermarket.inventory.purchaseinbound.entity.PurchaseInboundItem;
 import com.supermarket.inventory.purchaseinbound.mapper.PurchaseInboundMapper;
+import com.supermarket.inventory.purchaseinbound.mapper.PurchaseInboundReceiptMapper;
+import com.supermarket.inventory.purchaseinbound.vo.PurchaseInboundApprovalLogVO;
 import com.supermarket.inventory.purchaseinbound.vo.PurchaseInboundItemVO;
+import com.supermarket.inventory.purchaseinbound.vo.PurchaseInboundReceiptVO;
 import com.supermarket.inventory.purchaseinbound.vo.PurchaseInboundVO;
 import com.supermarket.inventory.sku.entity.Sku;
 import com.supermarket.inventory.sku.service.SkuUnitResolver;
@@ -50,6 +53,8 @@ class PurchaseInboundServiceTest {
 
     @Mock
     private PurchaseInboundMapper purchaseInboundMapper;
+    @Mock
+    private PurchaseInboundReceiptMapper receiptMapper;
 
     @Mock
     private SkuUnitResolver skuUnitResolver;
@@ -69,6 +74,7 @@ class PurchaseInboundServiceTest {
     void setUp() {
         purchaseInboundService = new PurchaseInboundService(
                 purchaseInboundMapper,
+                receiptMapper,
                 skuUnitResolver,
                 stockService,
                 supplierMapper,
@@ -107,6 +113,29 @@ class PurchaseInboundServiceTest {
 
         assertThat(result).isSameAs(order);
         assertThat(result.getItems()).containsExactly(item);
+    }
+
+    @Test
+    void getById_returnsApprovalLogsAndReceiptsForWorkflowDetail() {
+        PurchaseInboundVO order = vo(100L);
+        PurchaseInboundItemVO item = itemVO(10L, 48, 0);
+        PurchaseInboundApprovalLogVO approvalLog = new PurchaseInboundApprovalLogVO();
+        approvalLog.setAction("APPROVE");
+        approvalLog.setFromStatus("SUBMITTED");
+        approvalLog.setToStatus("APPROVED");
+        PurchaseInboundReceiptVO receipt = new PurchaseInboundReceiptVO();
+        receipt.setId(200L);
+        receipt.setPurchaseInboundId(100L);
+        when(purchaseInboundMapper.findById(100L)).thenReturn(Optional.of(order));
+        when(purchaseInboundMapper.findItemsByInboundId(100L)).thenReturn(List.of(item));
+        when(purchaseInboundMapper.findApprovalLogsByInboundId(100L)).thenReturn(List.of(approvalLog));
+        when(receiptMapper.findReceiptsByInboundId(100L)).thenReturn(List.of(receipt));
+
+        PurchaseInboundVO result = purchaseInboundService.getById(100L);
+
+        assertThat(result.getItems()).containsExactly(item);
+        assertThat(result.getApprovalLogs()).containsExactly(approvalLog);
+        assertThat(result.getReceipts()).containsExactly(receipt);
     }
 
     @Test

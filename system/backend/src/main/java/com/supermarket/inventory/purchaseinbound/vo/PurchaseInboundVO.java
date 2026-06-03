@@ -36,6 +36,7 @@ public class PurchaseInboundVO {
     private String remark;
     private LocalDateTime createTime;
     private List<PurchaseInboundItemVO> items;
+    private List<PurchaseInboundApprovalLogVO> approvalLogs;
     private List<PurchaseInboundReceiptVO> receipts;
 
     public Long getId() {
@@ -276,6 +277,14 @@ public class PurchaseInboundVO {
 
     public void setItems(List<PurchaseInboundItemVO> items) {
         this.items = items;
+    }
+
+    public List<PurchaseInboundApprovalLogVO> getApprovalLogs() {
+        return approvalLogs;
+    }
+
+    public void setApprovalLogs(List<PurchaseInboundApprovalLogVO> approvalLogs) {
+        this.approvalLogs = approvalLogs;
     }
 
     public List<PurchaseInboundReceiptVO> getReceipts() {

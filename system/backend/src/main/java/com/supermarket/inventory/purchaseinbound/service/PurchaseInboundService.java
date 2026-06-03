@@ -15,7 +15,10 @@ import com.supermarket.inventory.purchaseinbound.entity.PurchaseInbound;
 import com.supermarket.inventory.purchaseinbound.entity.PurchaseInboundApprovalLog;
 import com.supermarket.inventory.purchaseinbound.entity.PurchaseInboundItem;
 import com.supermarket.inventory.purchaseinbound.mapper.PurchaseInboundMapper;
+import com.supermarket.inventory.purchaseinbound.mapper.PurchaseInboundReceiptMapper;
 import com.supermarket.inventory.purchaseinbound.vo.PurchaseInboundItemVO;
+import com.supermarket.inventory.purchaseinbound.vo.PurchaseInboundReceiptBatchVO;
+import com.supermarket.inventory.purchaseinbound.vo.PurchaseInboundReceiptVO;
 import com.supermarket.inventory.purchaseinbound.vo.PurchaseInboundVO;
 import com.supermarket.inventory.sku.service.SkuUnitResolver;
 import com.supermarket.inventory.stock.service.StockService;
@@ -33,6 +36,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class PurchaseInboundService {
@@ -41,6 +46,7 @@ public class PurchaseInboundService {
     private static final BigDecimal MAX_AMOUNT = new BigDecimal("10000000000.00");
 
     private final PurchaseInboundMapper purchaseInboundMapper;
+    private final PurchaseInboundReceiptMapper receiptMapper;
     private final SkuUnitResolver skuUnitResolver;
     @SuppressWarnings("unused")
     private final StockService stockService;
@@ -49,12 +55,14 @@ public class PurchaseInboundService {
 
     public PurchaseInboundService(
             PurchaseInboundMapper purchaseInboundMapper,
+            PurchaseInboundReceiptMapper receiptMapper,
             SkuUnitResolver skuUnitResolver,
             StockService stockService,
             SupplierMapper supplierMapper,
             SupplierSkuService supplierSkuService
     ) {
         this.purchaseInboundMapper = purchaseInboundMapper;
+        this.receiptMapper = receiptMapper;
         this.skuUnitResolver = skuUnitResolver;
         this.stockService = stockService;
         this.supplierMapper = supplierMapper;
@@ -76,7 +84,28 @@ public class PurchaseInboundService {
         PurchaseInboundVO vo = purchaseInboundMapper.findById(id)
                 .orElseThrow(() -> new BusinessException(404, "采购入库单不存在"));
         vo.setItems(purchaseInboundMapper.findItemsByInboundId(id));
+        vo.setApprovalLogs(purchaseInboundMapper.findApprovalLogsByInboundId(id));
+        vo.setReceipts(findReceiptsWithBatches(id));
         return vo;
+    }
+
+    private List<PurchaseInboundReceiptVO> findReceiptsWithBatches(Long inboundId) {
+        List<PurchaseInboundReceiptVO> receipts = receiptMapper.findReceiptsByInboundId(inboundId);
+        if (receipts == null || receipts.isEmpty()) {
+            return List.of();
+        }
+        List<Long> receiptIds = receipts.stream().map(PurchaseInboundReceiptVO::getId).toList();
+        List<PurchaseInboundReceiptBatchVO> batches = receiptMapper.findReceiptBatchesByReceiptIds(receiptIds);
+        if (batches == null || batches.isEmpty()) {
+            receipts.forEach(receipt -> receipt.setBatches(List.of()));
+            return receipts;
+        }
+        Map<Long, List<PurchaseInboundReceiptBatchVO>> batchesByReceiptId = batches.stream()
+                .collect(Collectors.groupingBy(PurchaseInboundReceiptBatchVO::getReceiptId));
+        receipts.forEach(receipt -> receipt.setBatches(
+                batchesByReceiptId.getOrDefault(receipt.getId(), List.of())
+        ));
+        return receipts;
     }
 
     @Transactional

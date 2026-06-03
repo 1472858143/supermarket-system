@@ -3,6 +3,7 @@ package com.supermarket.inventory.purchaseinbound.mapper;
 import com.supermarket.inventory.purchaseinbound.entity.PurchaseInbound;
 import com.supermarket.inventory.purchaseinbound.entity.PurchaseInboundApprovalLog;
 import com.supermarket.inventory.purchaseinbound.entity.PurchaseInboundItem;
+import com.supermarket.inventory.purchaseinbound.vo.PurchaseInboundApprovalLogVO;
 import com.supermarket.inventory.purchaseinbound.vo.PurchaseInboundItemVO;
 import com.supermarket.inventory.purchaseinbound.vo.PurchaseInboundVO;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -78,6 +79,19 @@ public class PurchaseInboundMapper {
         vo.setInboundedAmount(rs.getBigDecimal("inbounded_amount"));
         vo.setPurchasePrice(rs.getBigDecimal("purchase_price"));
         vo.setCostPrice(rs.getBigDecimal("cost_price"));
+        vo.setCreateTime(toLocalDateTime(rs.getTimestamp("create_time")));
+        return vo;
+    };
+
+    private final RowMapper<PurchaseInboundApprovalLogVO> approvalLogRowMapper = (rs, rowNum) -> {
+        PurchaseInboundApprovalLogVO vo = new PurchaseInboundApprovalLogVO();
+        vo.setAction(rs.getString("action"));
+        vo.setFromStatus(rs.getString("from_status"));
+        vo.setToStatus(rs.getString("to_status"));
+        vo.setOperatorUserId(rs.getObject("operator_user_id", Long.class));
+        vo.setOperatorUsername(rs.getString("operator_username"));
+        vo.setReason(rs.getString("reason"));
+        vo.setRemark(rs.getString("remark"));
         vo.setCreateTime(toLocalDateTime(rs.getTimestamp("create_time")));
         return vo;
     };
@@ -308,6 +322,20 @@ public class PurchaseInboundMapper {
                 log.getOperatorUsername(),
                 log.getReason(),
                 log.getRemark()
+        );
+    }
+
+    public List<PurchaseInboundApprovalLogVO> findApprovalLogsByInboundId(Long inboundId) {
+        return jdbcTemplate.query(
+                """
+                select action, from_status, to_status, operator_user_id, operator_username,
+                       reason, remark, create_time
+                from purchase_inbound_approval_log
+                where purchase_inbound_id = ?
+                order by id asc
+                """,
+                approvalLogRowMapper,
+                inboundId
         );
     }
 
