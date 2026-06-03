@@ -82,6 +82,10 @@ public class StockCheckService {
         return vo;
     }
 
+    public void recalculateStockSummary(Long skuId) {
+        recalculateStockSummaryInternal(skuId);
+    }
+
     @Transactional
     public StockCheckVO create(StockCheckCreateRequest request) {
         validateCreateRequest(request);
@@ -183,8 +187,8 @@ public class StockCheckService {
                 totalDifference += batchDifference;
             }
 
-            int stockAfterQuantity = stockBatchMapper.sumQuantityBySkuId(skuId);
-            stockMapper.updateQuantity(skuId, stockAfterQuantity);
+            StockBatchMapper.StockQuantitySummary summary = recalculateStockSummaryInternal(skuId);
+            int stockAfterQuantity = summary.totalQuantity();
             stockMapper.insertLog(
                     skuId,
                     CHANGE_TYPE_CHECK,
@@ -196,6 +200,18 @@ public class StockCheckService {
 
         stockCheckMapper.complete(stockCheck.getId(), totalDifference);
         return detail(id);
+    }
+
+    private StockBatchMapper.StockQuantitySummary recalculateStockSummaryInternal(Long skuId) {
+        StockBatchMapper.StockQuantitySummary summary = stockBatchMapper.sumQuantitiesByStatus(skuId);
+        stockMapper.updateQuantities(
+                skuId,
+                summary.totalQuantity(),
+                summary.availableQuantity(),
+                summary.lockedQuantity(),
+                summary.expiredQuantity()
+        );
+        return summary;
     }
 
     private void validateCreateRequest(StockCheckCreateRequest request) {

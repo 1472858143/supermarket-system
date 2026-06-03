@@ -26,6 +26,14 @@ public class StockBatchMapper {
 
     private final JdbcTemplate jdbcTemplate;
 
+    public record StockQuantitySummary(
+            int totalQuantity,
+            int availableQuantity,
+            int lockedQuantity,
+            int expiredQuantity
+    ) {
+    }
+
     private final RowMapper<StockBatch> stockBatchRowMapper = (rs, rowNum) -> {
         StockBatch batch = new StockBatch();
         batch.setId(rs.getLong("id"));
@@ -229,6 +237,27 @@ public class StockBatchMapper {
                 skuId
         );
         return total == null ? 0 : total;
+    }
+
+    public StockQuantitySummary sumQuantitiesByStatus(Long skuId) {
+        return jdbcTemplate.queryForObject(
+                """
+                select
+                  coalesce(sum(case when status in ('AVAILABLE','LOCKED','EXPIRED') then quantity else 0 end), 0) as total_quantity,
+                  coalesce(sum(case when status = 'AVAILABLE' then quantity else 0 end), 0) as available_quantity,
+                  coalesce(sum(case when status = 'LOCKED' then quantity else 0 end), 0) as locked_quantity,
+                  coalesce(sum(case when status = 'EXPIRED' then quantity else 0 end), 0) as expired_quantity
+                from stock_batch
+                where sku_id = ?
+                """,
+                (rs, rowNum) -> new StockQuantitySummary(
+                        rs.getInt("total_quantity"),
+                        rs.getInt("available_quantity"),
+                        rs.getInt("locked_quantity"),
+                        rs.getInt("expired_quantity")
+                ),
+                skuId
+        );
     }
 
     public List<StockBatchVO> findBySkuId(Long skuId) {

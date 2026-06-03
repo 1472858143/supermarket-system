@@ -88,13 +88,14 @@ class StockCheckServiceTest {
         when(stockMapper.findBySkuIdForUpdate(20L)).thenReturn(Optional.of(stock(20L, 12)));
         when(stockBatchMapper.findByIdAndSkuIdForUpdate(100L, 20L)).thenReturn(Optional.of(batch));
         when(stockBatchMapper.updateRemainingQuantityAndStatus(100L, 20L, 18, "AVAILABLE")).thenReturn(1);
-        when(stockBatchMapper.sumQuantityBySkuId(20L)).thenReturn(18);
+        when(stockBatchMapper.sumQuantitiesByStatus(20L))
+                .thenReturn(new StockBatchMapper.StockQuantitySummary(18, 18, 0, 0));
         when(stockCheckMapper.findVOById(8L)).thenReturn(Optional.of(new StockCheckVO()));
 
         stockCheckService.complete(8L);
 
         verify(stockBatchMapper).updateRemainingQuantityAndStatus(100L, 20L, 18, "AVAILABLE");
-        verify(stockMapper).updateQuantity(20L, 18);
+        verify(stockMapper).updateQuantities(20L, 18, 18, 0, 0);
         verify(stockMapper).insertLog(20L, "CHECK", 6, 12, 18);
         verify(stockCheckMapper).complete(8L, 6);
 
@@ -109,6 +110,16 @@ class StockCheckServiceTest {
         assertThat(log.getAfterQuantity()).isEqualTo(18);
         assertThat(log.getSourceType()).isEqualTo("STOCK_CHECK");
         assertThat(log.getSourceId()).isEqualTo(8L);
+    }
+
+    @Test
+    void complete_recalculatesStockAggregateFromBatchFacts() {
+        when(stockBatchMapper.sumQuantitiesByStatus(20L))
+                .thenReturn(new StockBatchMapper.StockQuantitySummary(10, 6, 3, 1));
+
+        stockCheckService.recalculateStockSummary(20L);
+
+        verify(stockMapper).updateQuantities(20L, 10, 6, 3, 1);
     }
 
     private StockCheckCreateRequest createRequest() {
