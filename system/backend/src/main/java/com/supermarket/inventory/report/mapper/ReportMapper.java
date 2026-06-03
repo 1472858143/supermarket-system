@@ -21,9 +21,9 @@ public class ReportMapper {
                 select
                   (select count(*) from product) as productCount,
                   (select count(*) from stock) as stockCount,
-                  coalesce(sum(s.quantity), 0) as totalQuantity,
-                  sum(case when s.quantity < s.min_stock then 1 else 0 end) as lowWarningCount,
-                  sum(case when s.quantity > s.max_stock then 1 else 0 end) as highWarningCount
+                  coalesce(sum(s.total_quantity), 0) as totalQuantity,
+                  sum(case when s.total_quantity < s.min_stock then 1 else 0 end) as lowWarningCount,
+                  sum(case when s.total_quantity > s.max_stock then 1 else 0 end) as highWarningCount
                 from stock s
                 """
         );
@@ -32,7 +32,7 @@ public class ReportMapper {
     public Map<String, Object> inboundSummary() {
         return jdbcTemplate.queryForMap(
                 """
-                select count(*) as orderCount, coalesce(sum(total_quantity), 0) as totalQuantity
+                select count(*) as orderCount, coalesce(sum(inbound_total_quantity), 0) as totalQuantity
                 from purchase_inbound
                 """
         );
@@ -55,19 +55,19 @@ public class ReportMapper {
                        p.product_code as productCode,
                        p.product_name as productName,
                        c.name as category,
-                       s.quantity,
+                       s.total_quantity as quantity,
                        s.min_stock as minStock,
                        s.max_stock as maxStock,
                        case
-                         when s.quantity < s.min_stock then 'LOW'
-                         when s.quantity > s.max_stock then 'HIGH'
+                         when s.total_quantity < s.min_stock then 'LOW'
+                         when s.total_quantity > s.max_stock then 'HIGH'
                          else 'NORMAL'
                        end as warningStatus
                 from stock s
                 inner join sku k on k.id = s.sku_id
                 inner join product p on p.id = k.product_id
                 left join category c on c.id = p.category_id
-                where s.quantity < s.min_stock or s.quantity > s.max_stock
+                where s.total_quantity < s.min_stock or s.total_quantity > s.max_stock
                 order by s.update_time desc
                 """
         );
