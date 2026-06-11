@@ -10,18 +10,21 @@ const checks = [
   ['AdminLayout wraps the avatar trigger and menu together', layout.includes('class="user-menu-wrapper"')],
   ['avatar trigger toggles the menu instead of logging out directly', layout.includes('@click.stop="toggleUserMenu"')],
   ['avatar trigger exposes menu expanded state', layout.includes(':aria-expanded="String(userMenuOpen)"')],
+  ['avatar trigger renders the prototype chevron', layout.includes('class="user-menu-chevron"') && layout.includes('<polyline points="6 9 12 15 18 9"')],
+  ['avatar chevron reflects menu state', layout.includes(":class=\"{ 'is-open': userMenuOpen }\"")],
   ['AdminLayout renders a conditional user menu', layout.includes('class="user-menu"') && layout.includes('v-if="userMenuOpen"')],
   ['user menu contains a dedicated logout button', layout.includes('class="logout-action"') && layout.includes('@click="handleLogout"')],
   ['avatar trigger no longer calls handleLogout directly', !/class="user"[\s\S]{0,160}@click="handleLogout"/.test(layout)],
   ['script tracks userMenuOpen state', layout.includes("const userMenuOpen = ref(false)")],
   ['script defines a toggleUserMenu handler', layout.includes('function toggleUserMenu()')],
-  ['script closes the menu on outside document click', layout.includes("document.addEventListener('click', closeUserMenu)")],
-  ['script removes the outside click listener on unmount', layout.includes("document.removeEventListener('click', closeUserMenu)")],
+  ['script closes floating panels on outside document click', layout.includes("document.addEventListener('click', closeFloatingPanels)")],
+  ['script removes the outside click listener on unmount', layout.includes("document.removeEventListener('click', closeFloatingPanels)")],
   ['logout flow closes the menu before route replacement', /async function handleLogout\(\)[\s\S]*closeUserMenu\(\)[\s\S]*router\.replace\('\/login'\)/.test(layout)],
   ['styles position the user menu wrapper', styles.includes('.user-menu-wrapper {') && styles.includes('position: relative')],
   ['styles define the dropdown panel', styles.includes('.user-menu {') && styles.includes('position: absolute')],
   ['styles right-align the dropdown under the avatar', styles.includes('right: 0') && styles.includes('top: calc(100% + 8px)')],
   ['styles define the logout action button', styles.includes('.logout-action {')],
+  ['styles rotate the expanded avatar chevron', styles.includes('.user-menu-chevron.is-open') && styles.includes('transform: rotate(180deg)')],
   ['styles keep the mobile avatar menu usable', styles.includes('@media (max-width: 720px)') && styles.includes('.user-menu {')]
 ]
 
