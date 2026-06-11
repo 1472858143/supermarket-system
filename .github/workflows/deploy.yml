@@ -1,0 +1,99 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Test backend
+        working-directory: system/backend
+        run: mvn -B test
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: system/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: system/frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: system/frontend
+        run: npm run build
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Prepare SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${DEPLOY_PORT:-22}" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy on server
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "DEPLOY_PATH='${DEPLOY_PATH:-/opt/supermarket-system}' bash -s" <<'REMOTE'
+          set -euo pipefail
+
+          DEPLOY_PATH="${DEPLOY_PATH:-/opt/supermarket-system}"
+          REPO_URL="https://github.com/1472858143/supermarket-system.git"
+
+          if [ ! -d "$DEPLOY_PATH/.git" ]; then
+            mkdir -p "$DEPLOY_PATH"
+            git clone "$REPO_URL" "$DEPLOY_PATH"
+          fi
+
+          cd "$DEPLOY_PATH"
+          git fetch --prune origin
+          git reset --hard origin/main
+
+          if [ ! -f .env ]; then
+            echo ".env is missing in $DEPLOY_PATH" >&2
+            exit 2
+          fi
+
+          docker compose up -d --build --remove-orphans
+          docker compose ps
+          set -a
+          . ./.env
+          set +a
+          ./scripts/verify-compose.sh
+          docker image prune -f --filter "until=168h"
+          docker builder prune -f --filter "until=168h"
+          REMOTE
