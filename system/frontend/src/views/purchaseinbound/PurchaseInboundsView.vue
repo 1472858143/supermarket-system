@@ -44,6 +44,12 @@
       </div>
     </div>
 
+    <nav class="sub-tabs">
+      <a :class="{ on: activeModule === 'orders' }" href="#" @click.prevent="setActiveModule('orders')">采购订单<span class="ct">{{ formatNumber(statusTotals.all) }}</span></a>
+      <a :class="{ on: activeModule === 'inbound' }" href="#" @click.prevent="setActiveModule('inbound')">采购入库<span class="ct">{{ formatNumber(inboundTotalCount) }}</span></a>
+      <a href="#" @click.prevent="safeAction('采购绩效页面尚未接入前端路由', 'error')">采购绩效</a>
+    </nav>
+
     <section class="kpi-row purchase-kpi-row">
       <button
         v-for="card in kpiCards"
@@ -86,12 +92,6 @@
         </div>
       </button>
     </section>
-
-    <nav class="sub-tabs">
-      <a :class="{ on: activeModule === 'orders' }" href="#" @click.prevent="setActiveModule('orders')">采购订单<span class="ct">{{ formatNumber(statusTotals.all) }}</span></a>
-      <a :class="{ on: activeModule === 'inbound' }" href="#" @click.prevent="setActiveModule('inbound')">采购入库<span class="ct">{{ formatNumber(inboundTotalCount) }}</span></a>
-      <a href="#" @click.prevent="safeAction('采购绩效页面尚未接入前端路由', 'error')">采购绩效</a>
-    </nav>
 
     <div v-if="message" class="message" :class="messageType === 'error' ? 'message-error' : 'message-success'">
       {{ message }}

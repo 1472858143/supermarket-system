@@ -37,6 +37,11 @@
       </div>
     </div>
 
+    <nav class="sub-tabs">
+      <a :class="{ on: activeTab === 'stock' }" href="#" @click.prevent="activeTab = 'stock'">实时库存<span class="ct">{{ formatNumber(filteredRows.length) }}</span></a>
+      <a :class="{ on: activeTab === 'stockcheck' }" href="#" @click.prevent="activeTab = 'stockcheck'">盘点管理</a>
+    </nav>
+
     <section class="kpi-row inventory-kpi-row">
       <div v-for="card in kpiCards" :key="card.key" class="kpi inventory-kpi-card" :style="{ '--accent': card.color }">
         <div class="label">{{ card.label }}</div>
@@ -75,11 +80,6 @@
         </div>
       </div>
     </section>
-
-    <nav class="sub-tabs">
-      <a :class="{ on: activeTab === 'stock' }" href="#" @click.prevent="activeTab = 'stock'">实时库存<span class="ct">{{ formatNumber(filteredRows.length) }}</span></a>
-      <a :class="{ on: activeTab === 'stockcheck' }" href="#" @click.prevent="activeTab = 'stockcheck'">盘点管理</a>
-    </nav>
 
     <div v-if="message" class="message" :class="messageType === 'error' ? 'message-error' : 'message-success'">
       {{ message }}

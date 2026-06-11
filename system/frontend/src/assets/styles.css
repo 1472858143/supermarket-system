@@ -949,17 +949,20 @@ a {
   color: var(--brand-bright);
 }
 
-.nav a.router-link-active {
+.nav a.router-link-active,
+.nav a.is-active {
   background: linear-gradient(90deg, rgba(47, 124, 255, 0.22), rgba(47, 124, 255, 0.04));
   color: #ffffff;
   font-weight: 500;
 }
 
-.nav a.router-link-active .ico {
+.nav a.router-link-active .ico,
+.nav a.is-active .ico {
   color: var(--brand-bright);
 }
 
-.nav a.router-link-active::before {
+.nav a.router-link-active::before,
+.nav a.is-active::before {
   content: "";
   position: absolute;
   left: -12px;
@@ -982,7 +985,8 @@ a {
   line-height: 1.5;
 }
 
-.nav a.router-link-active .badge {
+.nav a.router-link-active .badge,
+.nav a.is-active .badge {
   background: var(--brand-bright);
 }
 

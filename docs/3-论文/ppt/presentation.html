@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>超市库存管理系统 - 毕业答辩</title>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 /* ============ RESET & BASE ============ */
 *{margin:0;padding:0;box-sizing:border-box}
@@ -15,17 +16,17 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
 
 /* ============ THEME VARIABLES ============ */
 :root{
-  --bg-primary:#0a0e27;
-  --bg-secondary:#0f1538;
-  --bg-card:rgba(255,255,255,0.04);
-  --accent:#00d4ff;
-  --accent2:#7c4dff;
-  --accent3:#00e5a0;
-  --text-primary:#ffffff;
-  --text-secondary:rgba(255,255,255,0.7);
-  --text-muted:rgba(255,255,255,0.45);
-  --glass:rgba(255,255,255,0.06);
-  --glass-border:rgba(255,255,255,0.1);
+  --bg-primary:#f5f7fb;
+  --bg-secondary:#eef1f8;
+  --bg-card:rgba(255,255,255,0.85);
+  --accent:#0077d4;
+  --accent2:#6c3fe0;
+  --accent3:#00a86b;
+  --text-primary:#1a1e36;
+  --text-secondary:#4a5068;
+  --text-muted:#8a90a4;
+  --glass:rgba(255,255,255,0.8);
+  --glass-border:rgba(0,0,0,0.08);
   --radius:16px;
   --transition:0.5s cubic-bezier(0.4,0,0.2,1);
 }
@@ -64,8 +65,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
 .bg-grid{
   position:fixed;inset:0;z-index:0;
   background-image:
-    linear-gradient(rgba(0,212,255,0.03) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(0,212,255,0.03) 1px,transparent 1px);
+    linear-gradient(rgba(0,0,0,0.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,0,0,0.03) 1px,transparent 1px);
   background-size:60px 60px;
   pointer-events:none;
 }
@@ -74,7 +75,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
   width:600px;height:600px;
   border-radius:50%;
   filter:blur(120px);
-  opacity:0.15;
+  opacity:0.08;
 }
 .glow-1{top:-200px;right:-200px;background:var(--accent)}
 .glow-2{bottom:-200px;left:-200px;background:var(--accent2)}
@@ -104,9 +105,9 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
   padding:4px 16px;
   border-radius:20px;
   font-size:13px;font-weight:600;
-  background:linear-gradient(135deg,rgba(0,212,255,0.15),rgba(124,77,255,0.15));
+  background:linear-gradient(135deg,rgba(0,119,212,0.08),rgba(108,63,224,0.08));
   color:var(--accent);
-  border:1px solid rgba(0,212,255,0.2);
+  border:1px solid rgba(0,119,212,0.15);
   margin-bottom:16px;
   letter-spacing:1px;
 }
@@ -129,10 +130,11 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
   padding:28px 24px;
   backdrop-filter:blur(20px);
   transition:transform 0.3s,box-shadow 0.3s;
+  box-shadow:0 2px 12px rgba(0,0,0,0.04);
 }
 .card:hover{
   transform:translateY(-4px);
-  box-shadow:0 12px 40px rgba(0,212,255,0.1);
+  box-shadow:0 12px 40px rgba(0,119,212,0.1);
 }
 .card-icon{
   width:48px;height:48px;
@@ -140,8 +142,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
   display:flex;align-items:center;justify-content:center;
   font-size:22px;
   margin-bottom:16px;
-  background:linear-gradient(135deg,rgba(0,212,255,0.15),rgba(124,77,255,0.15));
-  border:1px solid rgba(0,212,255,0.2);
+  background:linear-gradient(135deg,rgba(0,119,212,0.08),rgba(108,63,224,0.08));
+  border:1px solid rgba(0,119,212,0.12);
 }
 .card h3{
   font-size:17px;font-weight:600;
@@ -163,10 +165,29 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
 
 /* ============ COVER ============ */
 .cover{padding:60px}
-.cover-content{text-align:center;max-width:800px}
+.cover-logo{
+  position:fixed;top:25px;left:30px;
+  width:280px;height:auto;
+  z-index:100;
+}
+.cover-content{
+  text-align:center;
+  max-width:900px;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+}
+.cover-label{
+  font-family:'Exo 2','HarmonyOS Sans SC','MiSans SC','Noto Sans SC','PingFang SC','Microsoft YaHei',system-ui,sans-serif;
+  font-size:18px;font-weight:600;
+  color:var(--accent);
+  letter-spacing:6px;
+  margin-bottom:16px;
+  text-transform:uppercase;
+}
 .cover-title{
-  font-size:56px;font-weight:800;
-  background:linear-gradient(135deg,#fff 0%,var(--accent) 50%,var(--accent2) 100%);
+  font-family:'Exo 2','HarmonyOS Sans SC','MiSans SC','Noto Sans SC','PingFang SC','Microsoft YaHei',system-ui,sans-serif;
+  font-size:64px;font-weight:800;letter-spacing:4px;white-space:nowrap;
+  background:linear-gradient(135deg,var(--text-primary) 0%,var(--accent) 50%,var(--accent2) 100%);
   -webkit-background-clip:text;
   -webkit-text-fill-color:transparent;
   background-clip:text;
@@ -174,11 +195,12 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
   margin-bottom:16px;
 }
 .cover-sub{
-  font-size:24px;color:var(--text-secondary);
+  font-family:'Exo 2','HarmonyOS Sans SC','MiSans SC','Noto Sans SC','PingFang SC','Microsoft YaHei',system-ui,sans-serif;
+  font-size:22px;color:var(--text-secondary);
   margin-bottom:48px;font-weight:400;
 }
 .cover-info{
-  display:flex;gap:32px;justify-content:center;flex-wrap:wrap;
+  display:flex;gap:40px;justify-content:center;flex-wrap:wrap;
 }
 .cover-info-item{
   text-align:center;
@@ -197,12 +219,6 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
   margin:32px auto;
   border-radius:1px;
 }
-.cover-logo{
-  width:120px;height:120px;
-  margin-bottom:24px;
-  filter:drop-shadow(0 0 30px rgba(0,212,255,0.2));
-  opacity:0.9;
-}
 
 /* ============ TABLE ============ */
 .tech-table{
@@ -217,7 +233,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
   color:var(--accent);
   text-transform:uppercase;
   letter-spacing:1.5px;
-  border-bottom:1px solid var(--glass-border);
+  border-bottom:2px solid rgba(0,119,212,0.15);
 }
 .tech-table td{
   padding:14px 20px;
@@ -253,7 +269,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
   font-size:14px;color:var(--text-primary);font-weight:500;
 }
 .flow-arrow{
-  font-size:24px;color:var(--accent);opacity:0.4;
+  font-size:24px;color:var(--accent);opacity:0.3;
   margin:0 8px;margin-bottom:28px;
 }
 
@@ -274,22 +290,23 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
   border:1px solid;
 }
 .arch-box.frontend{
-  background:rgba(0,212,255,0.1);
-  border-color:rgba(0,212,255,0.3);
+  background:rgba(0,119,212,0.06);
+  border-color:rgba(0,119,212,0.2);
   color:var(--accent);
 }
 .arch-box.backend{
-  background:rgba(124,77,255,0.1);
-  border-color:rgba(124,77,255,0.3);
+  background:rgba(108,63,224,0.06);
+  border-color:rgba(108,63,224,0.2);
   color:var(--accent2);
 }
 .arch-box.db{
-  background:rgba(0,229,160,0.1);
-  border-color:rgba(0,229,160,0.3);
+  background:rgba(0,168,107,0.06);
+  border-color:rgba(0,168,107,0.2);
   color:var(--accent3);
 }
 .arch-arrow{
   font-size:28px;color:var(--text-muted);
+  opacity:0.6;
 }
 
 /* ============ ENDING ============ */
@@ -302,7 +319,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
   margin-bottom:24px;
 }
 .ending-sub{
-  font-size:22px;color:var(--text-secondary);
+  font-size:22px;color:var(--text-muted);
 }
 
 /* ============ PROGRESS BAR ============ */
@@ -342,8 +359,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
 
 /* ============ HIGHLIGHT BOX ============ */
 .highlight-box{
-  background:linear-gradient(135deg,rgba(0,212,255,0.08),rgba(124,77,255,0.08));
-  border:1px solid rgba(0,212,255,0.15);
+  background:linear-gradient(135deg,rgba(0,119,212,0.05),rgba(108,63,224,0.05));
+  border:1px solid rgba(0,119,212,0.1);
   border-radius:var(--radius);
   padding:24px 28px;
   margin-top:20px;
@@ -369,6 +386,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
   border:1px solid var(--glass-border);
   border-radius:12px;
   font-size:14px;color:var(--text-primary);
+  box-shadow:0 1px 4px rgba(0,0,0,0.03);
 }
 .module-dot{
   width:8px;height:8px;border-radius:50%;
@@ -376,10 +394,49 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
   flex-shrink:0;
 }
 
+/* ============ TOC ============ */
+.toc-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:20px;
+  max-width:800px;width:100%;
+}
+.toc-item{
+  display:flex;align-items:center;gap:20px;
+  padding:22px 28px;
+  background:var(--glass);
+  border:1px solid var(--glass-border);
+  border-radius:var(--radius);
+  box-shadow:0 2px 8px rgba(0,0,0,0.04);
+  transition:transform 0.3s,box-shadow 0.3s;
+}
+.toc-item:hover{
+  transform:translateY(-3px);
+  box-shadow:0 8px 24px rgba(0,119,212,0.1);
+}
+.toc-num{
+  font-family:'Exo 2',sans-serif;
+  font-size:28px;font-weight:800;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+  min-width:48px;
+}
+.toc-text h3{
+  font-size:17px;font-weight:600;
+  color:var(--text-primary);margin-bottom:4px;
+}
+.toc-text p{
+  font-size:13px;color:var(--text-muted);
+}
+
 /* ============ RESPONSIVE ============ */
 @media(max-width:900px){
   .slide{padding:40px 32px}
+  .cover-logo{width:220px;height:auto;top:10px;left:12px}
   .cover-title{font-size:36px}
+  .cover-label{font-size:14px;letter-spacing:4px}
   .slide-title{font-size:30px}
   .card-grid.cols-3,.card-grid.cols-4{grid-template-columns:1fr 1fr}
   .two-col{grid-template-columns:1fr}
@@ -394,14 +451,13 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
   <div class="bg-grid"></div>
   <div class="bg-glow glow-1"></div>
   <div class="bg-glow glow-2"></div>
+  <img src="陕西科技大学.svg" alt="学校校徽" class="cover-logo">
 
   <!-- ==================== SLIDE 1: COVER ==================== -->
   <div class="slide cover active" data-slide="1">
     <div class="cover-content">
-      <img src="sust-logo.svg" alt="学校校徽" class="cover-logo">
-      <div class="section-tag">GRADUATION THESIS DEFENSE</div>
+      <div class="cover-label">毕 业 设 计</div>
       <div class="cover-title">超市库存管理系统的设计与实现</div>
-      <div class="cover-sub">—— 基于AI Agent协同开发模式的实践探索</div>
       <div class="cover-divider"></div>
       <div class="cover-info">
         <div class="cover-info-item">
@@ -424,20 +480,63 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </div>
   </div>
 
-  <!-- ==================== SLIDE 2: 项目背景与研究意义 ==================== -->
+  <!-- ==================== SLIDE 2: 目录 ==================== -->
   <div class="slide" data-slide="2">
+    <div class="section-tag">CONTENTS</div>
+    <div class="slide-title">目 录</div>
+    <div class="slide-subtitle">答辩内容概览</div>
+    <div class="toc-grid">
+      <div class="toc-item">
+        <div class="toc-num">01</div>
+        <div class="toc-text"><h3>项目概述</h3><p>背景、意义与目标</p></div>
+      </div>
+      <div class="toc-item">
+        <div class="toc-num">02</div>
+        <div class="toc-text"><h3>需求分析</h3><p>可行性、业务流程与用例</p></div>
+      </div>
+      <div class="toc-item">
+        <div class="toc-num">03</div>
+        <div class="toc-text"><h3>系统设计</h3><p>架构、模块与数据库</p></div>
+      </div>
+      <div class="toc-item">
+        <div class="toc-num">04</div>
+        <div class="toc-text"><h3>系统实现</h3><p>核心功能模块展示</p></div>
+      </div>
+      <div class="toc-item">
+        <div class="toc-num">05</div>
+        <div class="toc-text"><h3>系统测试</h3><p>测试设计与结果分析</p></div>
+      </div>
+      <div class="toc-item">
+        <div class="toc-num">06</div>
+        <div class="toc-text"><h3>总结与展望</h3><p>AI协同实践与未来规划</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 3: 项目背景与研究意义 ==================== -->
+  <div class="slide" data-slide="3">
     <div class="section-tag">PART 01 · 项目概述</div>
     <div class="slide-title">项目背景与研究意义</div>
     <div class="slide-subtitle">为什么要做这个系统</div>
-    <div class="card-grid cols-2">
+    <div class="card-grid cols-3">
       <div class="card">
         <div class="card-icon">🏪</div>
-        <h3>项目背景</h3>
+        <h3>系统背景</h3>
         <ul>
           <li>超市行业信息化发展迅速</li>
-          <li>人工记录效率低、易出错</li>
-          <li>库存信息更新滞后</li>
-          <li>数据统计困难，决策缺乏依据</li>
+          <li>传统库存管理依赖人工记录</li>
+          <li>数据易出错、更新滞后</li>
+          <li>缺乏数据支撑经营决策</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-icon">🤖</div>
+        <h3>AI开发背景</h3>
+        <ul>
+          <li>AI辅助编程工具快速发展</li>
+          <li>Claude Code、OpenCode等工具普及</li>
+          <li>人机协同开发成为新趋势</li>
+          <li>AI可提升开发效率与质量</li>
         </ul>
       </div>
       <div class="card">
@@ -447,14 +546,14 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
           <li>提高库存管理效率</li>
           <li>降低库存积压风险</li>
           <li>提升数据准确性</li>
-          <li>支持经营决策分析</li>
+          <li>探索AI协同开发模式</li>
         </ul>
       </div>
     </div>
   </div>
 
-  <!-- ==================== SLIDE 3: 项目目标与研究内容 ==================== -->
-  <div class="slide" data-slide="3">
+  <!-- ==================== SLIDE 4: 项目目标与研究内容 ==================== -->
+  <div class="slide" data-slide="4">
     <div class="section-tag">PART 01 · 项目概述</div>
     <div class="slide-title">项目目标与研究内容</div>
     <div class="slide-subtitle">要做什么、怎么做</div>
@@ -482,8 +581,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </div>
   </div>
 
-  <!-- ==================== SLIDE 4: 技术路线与开发环境 ==================== -->
-  <div class="slide" data-slide="4">
+  <!-- ==================== SLIDE 5: 技术路线与开发环境 ==================== -->
+  <div class="slide" data-slide="5">
     <div class="section-tag">PART 02 · 需求分析</div>
     <div class="slide-title">技术路线与开发环境</div>
     <div class="slide-subtitle">用什么技术、怎么开发</div>
@@ -515,8 +614,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </div>
   </div>
 
-  <!-- ==================== SLIDE 5: 可行性分析 ==================== -->
-  <div class="slide" data-slide="5">
+  <!-- ==================== SLIDE 6: 可行性分析 ==================== -->
+  <div class="slide" data-slide="6">
     <div class="section-tag">PART 02 · 需求分析</div>
     <div class="slide-title">可行性分析</div>
     <div class="slide-subtitle">从三个维度论证项目的可行性</div>
@@ -551,8 +650,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </div>
   </div>
 
-  <!-- ==================== SLIDE 6: 业务流程分析 ==================== -->
-  <div class="slide" data-slide="6">
+  <!-- ==================== SLIDE 7: 业务流程分析 ==================== -->
+  <div class="slide" data-slide="7">
     <div class="section-tag">PART 02 · 需求分析</div>
     <div class="slide-title">业务流程分析</div>
     <div class="slide-subtitle">核心业务流程梳理</div>
@@ -588,8 +687,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </div>
   </div>
 
-  <!-- ==================== SLIDE 7: 系统需求分析 ==================== -->
-  <div class="slide" data-slide="7">
+  <!-- ==================== SLIDE 8: 系统需求分析 ==================== -->
+  <div class="slide" data-slide="8">
     <div class="section-tag">PART 02 · 需求分析</div>
     <div class="slide-title">系统需求分析</div>
     <div class="slide-subtitle">功能需求与非功能需求</div>
@@ -617,8 +716,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </div>
   </div>
 
-  <!-- ==================== SLIDE 8: 系统用例分析 ==================== -->
-  <div class="slide" data-slide="8">
+  <!-- ==================== SLIDE 9: 系统用例分析 ==================== -->
+  <div class="slide" data-slide="9">
     <div class="section-tag">PART 02 · 需求分析</div>
     <div class="slide-title">系统用例分析</div>
     <div class="slide-subtitle">用户角色与核心用例</div>
@@ -646,8 +745,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </div>
   </div>
 
-  <!-- ==================== SLIDE 9: 系统总体架构设计 ==================== -->
-  <div class="slide" data-slide="9">
+  <!-- ==================== SLIDE 10: 系统总体架构设计 ==================== -->
+  <div class="slide" data-slide="10">
     <div class="section-tag">PART 03 · 系统设计</div>
     <div class="slide-title">系统总体架构设计</div>
     <div class="slide-subtitle">前后端分离架构</div>
@@ -670,8 +769,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </div>
   </div>
 
-  <!-- ==================== SLIDE 10: 功能模块设计 ==================== -->
-  <div class="slide" data-slide="10">
+  <!-- ==================== SLIDE 11: 功能模块设计 ==================== -->
+  <div class="slide" data-slide="11">
     <div class="section-tag">PART 03 · 系统设计</div>
     <div class="slide-title">功能模块设计</div>
     <div class="slide-subtitle">六大核心功能模块</div>
@@ -709,8 +808,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </div>
   </div>
 
-  <!-- ==================== SLIDE 11: 数据库设计思路 ==================== -->
-  <div class="slide" data-slide="11">
+  <!-- ==================== SLIDE 12: 数据库设计思路 ==================== -->
+  <div class="slide" data-slide="12">
     <div class="section-tag">PART 03 · 系统设计</div>
     <div class="slide-title">数据库设计思路</div>
     <div class="slide-subtitle">设计原则与AI辅助</div>
@@ -742,8 +841,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </div>
   </div>
 
-  <!-- ==================== SLIDE 12: E-R图设计 ==================== -->
-  <div class="slide" data-slide="12">
+  <!-- ==================== SLIDE 13: E-R图设计 ==================== -->
+  <div class="slide" data-slide="13">
     <div class="section-tag">PART 03 · 系统设计</div>
     <div class="slide-title">E-R图设计</div>
     <div class="slide-subtitle">核心实体与关系</div>
@@ -779,8 +878,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </div>
   </div>
 
-  <!-- ==================== SLIDE 13: 核心数据表设计 ==================== -->
-  <div class="slide" data-slide="13">
+  <!-- ==================== SLIDE 14: 核心数据表设计 ==================== -->
+  <div class="slide" data-slide="14">
     <div class="section-tag">PART 03 · 系统设计</div>
     <div class="slide-title">核心数据表设计</div>
     <div class="slide-subtitle">主要数据表结构</div>
@@ -798,8 +897,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </table>
   </div>
 
-  <!-- ==================== SLIDE 14: 登录与权限管理 ==================== -->
-  <div class="slide" data-slide="14">
+  <!-- ==================== SLIDE 15: 登录与权限管理 ==================== -->
+  <div class="slide" data-slide="15">
     <div class="section-tag">PART 04 · 系统实现</div>
     <div class="slide-title">登录与权限管理模块</div>
     <div class="slide-subtitle">系统安全入口</div>
@@ -825,8 +924,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </div>
   </div>
 
-  <!-- ==================== SLIDE 15: 商品管理模块 ==================== -->
-  <div class="slide" data-slide="15">
+  <!-- ==================== SLIDE 16: 商品管理模块 ==================== -->
+  <div class="slide" data-slide="16">
     <div class="section-tag">PART 04 · 系统实现</div>
     <div class="slide-title">商品管理模块</div>
     <div class="slide-subtitle">商品全生命周期管理</div>
@@ -853,8 +952,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </div>
   </div>
 
-  <!-- ==================== SLIDE 16: 库存管理模块 ==================== -->
-  <div class="slide" data-slide="16">
+  <!-- ==================== SLIDE 17: 库存管理模块 ==================== -->
+  <div class="slide" data-slide="17">
     <div class="section-tag">PART 04 · 系统实现</div>
     <div class="slide-title">库存管理模块</div>
     <div class="slide-subtitle">库存核心业务处理</div>
@@ -880,8 +979,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </div>
   </div>
 
-  <!-- ==================== SLIDE 17: 库存预警功能 ==================== -->
-  <div class="slide" data-slide="17">
+  <!-- ==================== SLIDE 18: 库存预警功能 ==================== -->
+  <div class="slide" data-slide="18">
     <div class="section-tag">PART 04 · 系统实现</div>
     <div class="slide-title">库存预警功能</div>
     <div class="slide-subtitle">智能库存监控</div>
@@ -903,8 +1002,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </div>
   </div>
 
-  <!-- ==================== SLIDE 18: 采购管理模块 ==================== -->
-  <div class="slide" data-slide="18">
+  <!-- ==================== SLIDE 19: 采购管理模块 ==================== -->
+  <div class="slide" data-slide="19">
     <div class="section-tag">PART 04 · 系统实现</div>
     <div class="slide-title">采购管理模块</div>
     <div class="slide-subtitle">采购全流程管理</div>
@@ -930,8 +1029,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </div>
   </div>
 
-  <!-- ==================== SLIDE 19: 销售管理模块 ==================== -->
-  <div class="slide" data-slide="19">
+  <!-- ==================== SLIDE 20: 销售管理模块 ==================== -->
+  <div class="slide" data-slide="20">
     <div class="section-tag">PART 04 · 系统实现</div>
     <div class="slide-title">销售管理模块</div>
     <div class="slide-subtitle">销售业务管理</div>
@@ -957,8 +1056,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </div>
   </div>
 
-  <!-- ==================== SLIDE 20: 数据统计分析模块 ==================== -->
-  <div class="slide" data-slide="20">
+  <!-- ==================== SLIDE 21: 数据统计分析模块 ==================== -->
+  <div class="slide" data-slide="21">
     <div class="section-tag">PART 04 · 系统实现</div>
     <div class="slide-title">数据统计分析模块</div>
     <div class="slide-subtitle">数据驱动决策</div>
@@ -985,8 +1084,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </div>
   </div>
 
-  <!-- ==================== SLIDE 21: 系统测试设计 ==================== -->
-  <div class="slide" data-slide="21">
+  <!-- ==================== SLIDE 22: 系统测试设计 ==================== -->
+  <div class="slide" data-slide="22">
     <div class="section-tag">PART 05 · 系统测试</div>
     <div class="slide-title">系统测试设计</div>
     <div class="slide-subtitle">保障系统质量</div>
@@ -1013,8 +1112,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </div>
   </div>
 
-  <!-- ==================== SLIDE 22: 测试结果分析 ==================== -->
-  <div class="slide" data-slide="22">
+  <!-- ==================== SLIDE 23: 测试结果分析 ==================== -->
+  <div class="slide" data-slide="23">
     <div class="section-tag">PART 05 · 系统测试</div>
     <div class="slide-title">测试结果分析</div>
     <div class="slide-subtitle">测试结论与验证</div>
@@ -1042,8 +1141,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </div>
   </div>
 
-  <!-- ==================== SLIDE 23: AI协同开发实践 ==================== -->
-  <div class="slide" data-slide="23">
+  <!-- ==================== SLIDE 24: AI协同开发实践 ==================== -->
+  <div class="slide" data-slide="24">
     <div class="section-tag">PART 06 · AI协同开发</div>
     <div class="slide-title">AI Agent协同开发实践</div>
     <div class="slide-subtitle">人机协同，高效开发</div>
@@ -1066,8 +1165,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </div>
   </div>
 
-  <!-- ==================== SLIDE 24: 项目总结与展望 ==================== -->
-  <div class="slide" data-slide="24">
+  <!-- ==================== SLIDE 25: 项目总结与展望 ==================== -->
+  <div class="slide" data-slide="25">
     <div class="section-tag">PART 06 · AI协同开发</div>
     <div class="slide-title">项目总结与展望</div>
     <div class="slide-subtitle">成果、不足与未来</div>
@@ -1102,8 +1201,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     </div>
   </div>
 
-  <!-- ==================== SLIDE 25: 致谢 ==================== -->
-  <div class="slide" data-slide="25">
+  <!-- ==================== SLIDE 26: 致谢 ==================== -->
+  <div class="slide" data-slide="26">
     <div class="ending-title">感谢聆听</div>
     <div class="ending-sub">请各位老师批评指正</div>
     <div style="margin-top:60px;color:var(--text-muted);font-size:14px">

@@ -72,6 +72,11 @@ if (!view.includes('class="icon-wrap"')) {
 if (!view.includes('class="delta"')) {
   failures.push('InventoryCenterView KPI cards should include prototype delta badge')
 }
+const inventorySubTabsIndex = view.indexOf('class="sub-tabs"')
+const inventoryKpiIndex = view.indexOf('class="kpi-row inventory-kpi-row"')
+if (inventorySubTabsIndex < 0 || inventoryKpiIndex < 0 || inventorySubTabsIndex > inventoryKpiIndex) {
+  failures.push('InventoryCenterView sub-tabs should appear before KPI cards')
+}
 if (view.includes('class="inventory-kpi"') || /\.inventory-kpi\s*\{/.test(styles)) {
   failures.push('InventoryCenterView should not keep the old inventory-kpi card style')
 }

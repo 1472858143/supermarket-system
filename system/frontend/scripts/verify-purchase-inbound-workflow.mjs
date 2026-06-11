@@ -61,6 +61,11 @@ if (!view.includes('class="icon-wrap"')) {
 if (!view.includes('class="delta"')) {
   failures.push('PurchaseInboundsView KPI cards should include prototype delta badge')
 }
+const purchaseSubTabsIndex = view.indexOf('class="sub-tabs"')
+const purchaseKpiIndex = view.indexOf('class="kpi-row purchase-kpi-row"')
+if (purchaseSubTabsIndex < 0 || purchaseKpiIndex < 0 || purchaseSubTabsIndex > purchaseKpiIndex) {
+  failures.push('PurchaseInboundsView sub-tabs should appear before KPI cards')
+}
 if (view.includes('class="purchase-kpi"') || /\.purchase-kpi\s*\{/.test(view)) {
   failures.push('PurchaseInboundsView should not keep the old purchase-kpi card style')
 }

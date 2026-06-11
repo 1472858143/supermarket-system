@@ -15,7 +15,7 @@
           <div v-if="item.type === 'group'" class="nav-group" :class="{ 'nav-group-spaced': item.spaced }">
             {{ item.label }}
           </div>
-          <RouterLink v-else :to="item.path">
+          <RouterLink v-else :to="item.path" :class="{ 'is-active': item.path === activeSidebarPath }">
             <svg
               class="ico"
               viewBox="0 0 24 24"
@@ -245,6 +245,17 @@ const navMeta = {
   '/reports': { icon: 'bars' },
   '/system': { icon: 'cog' }
 }
+
+const sidebarParentPaths = {
+  '/brands': '/products-modern',
+  '/categories': '/products-modern',
+  '/product-categories-modern': '/products-modern',
+  '/product-skus-modern': '/products-modern',
+  '/stocks': '/inventory-center',
+  '/stockchecks': '/inventory-center'
+}
+
+const activeSidebarPath = computed(() => sidebarParentPaths[route.path] || route.path)
 
 const sidebarItems = computed(() => {
   const menus = visibleMenus.value.map((item) => {
