@@ -151,6 +151,21 @@
                 <span class="name">{{ authStore.username || '未登录' }}</span>
                 <span class="role">{{ roleText }}</span>
               </span>
+              <svg
+                class="user-menu-chevron"
+                :class="{ 'is-open': userMenuOpen }"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
             </button>
             <div v-if="userMenuOpen" class="user-menu" role="menu">
               <button class="logout-action" type="button" role="menuitem" @click="handleLogout">

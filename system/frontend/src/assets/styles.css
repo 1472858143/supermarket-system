@@ -1358,6 +1358,16 @@ a {
   margin-top: 1px;
 }
 
+.user-menu-chevron {
+  flex: 0 0 auto;
+  color: var(--text-mute);
+  transition: transform 0.18s ease;
+}
+
+.user-menu-chevron.is-open {
+  transform: rotate(180deg);
+}
+
 .user-menu {
   position: absolute;
   right: 0;
