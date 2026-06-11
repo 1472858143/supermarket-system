@@ -48,7 +48,7 @@ class ReportMapperTest {
 
         String sql = sqlCaptor.getValue();
         assertThat(sql).contains("from purchase_inbound");
-        assertThat(sql).contains("sum(total_quantity)");
+        assertThat(sql).contains("sum(inbound_total_quantity)");
         assertThat(sql).doesNotContain("inbound_order");
         assertThat(sql).doesNotContain("sum(quantity)");
     }

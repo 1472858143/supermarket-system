@@ -12,6 +12,10 @@
 # Node
 **/node_modules/
 
+# Environment
+.env
+**/.env
+
 # Claude Code session artifacts
 docs/superpowers/
 CLAUDE.md
