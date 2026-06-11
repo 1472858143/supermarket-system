@@ -406,19 +406,19 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
       <div class="cover-info">
         <div class="cover-info-item">
           <div class="label">答辩人</div>
-          <div class="value">XXX</div>
-        </div>
-        <div class="cover-info-item">
-          <div class="label">学号</div>
-          <div class="value">XXXXXXXXXX</div>
+          <div class="value">伍佳圆</div>
         </div>
         <div class="cover-info-item">
           <div class="label">指导教师</div>
-          <div class="value">XXX 教授</div>
+          <div class="value">孙连山</div>
         </div>
         <div class="cover-info-item">
-          <div class="label">学院专业</div>
-          <div class="value">XXXX学院 · XXXX专业</div>
+          <div class="label">学院</div>
+          <div class="value">电子信息与人工智能学院</div>
+        </div>
+        <div class="cover-info-item">
+          <div class="label">专业</div>
+          <div class="value">网络工程</div>
         </div>
       </div>
     </div>
@@ -1107,7 +1107,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
     <div class="ending-title">感谢聆听</div>
     <div class="ending-sub">请各位老师批评指正</div>
     <div style="margin-top:60px;color:var(--text-muted);font-size:14px">
-      答辩人：XXX &nbsp;|&nbsp; 指导教师：XXX 教授
+      答辩人：伍佳圆 &nbsp;|&nbsp; 指导教师：孙连山
     </div>
   </div>
 
@@ -1126,11 +1126,12 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC'
 
   function go(idx){
     if(idx<0||idx>=total||idx===current) return;
-    slides[current].classList.remove('active');
-    slides[current].classList.add(idx>current?'prev':'');
-    setTimeout(()=>slides[current===idx?current:current].classList.remove('prev'),500);
+    const old = current;
+    const direction = idx>old?'prev':'next';
+    slides[old].classList.remove('active','prev','next');
+    slides[old].classList.add(direction);
     current = idx;
-    slides[current].classList.remove('prev');
+    slides[current].classList.remove('prev','next');
     slides[current].classList.add('active');
     document.getElementById('progress').style.width = ((current+1)/total*100)+'%';
     document.getElementById('pageNum').textContent = (current+1)+' / '+total;
