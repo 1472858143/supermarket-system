@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>超市库存管理系统 - 毕业答辩</title>
+<style>
+/* ============ RESET & BASE ============ */
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'HarmonyOS Sans SC','MiSans SC','Noto Sans SC','PingFang SC','Microsoft YaHei',system-ui,sans-serif}
+
+@font-face{font-family:'HarmonyOS Sans SC';src:local('HarmonyOS Sans SC'),local('HarmonyOS Sans SC Regular');font-weight:400;font-display:swap}
+@font-face{font-family:'HarmonyOS Sans SC';src:local('HarmonyOS Sans SC Medium');font-weight:500;font-display:swap}
+@font-face{font-family:'HarmonyOS Sans SC';src:local('HarmonyOS Sans SC Bold');font-weight:700;font-display:swap}
+
+/* ============ THEME VARIABLES ============ */
+:root{
+  --bg-primary:#0a0e27;
+  --bg-secondary:#0f1538;
+  --bg-card:rgba(255,255,255,0.04);
+  --accent:#00d4ff;
+  --accent2:#7c4dff;
+  --accent3:#00e5a0;
+  --text-primary:#ffffff;
+  --text-secondary:rgba(255,255,255,0.7);
+  --text-muted:rgba(255,255,255,0.45);
+  --glass:rgba(255,255,255,0.06);
+  --glass-border:rgba(255,255,255,0.1);
+  --radius:16px;
+  --transition:0.5s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ============ SLIDE CONTAINER ============ */
+#app{
+  width:100%;height:100%;
+  background:var(--bg-primary);
+  position:relative;
+  overflow:hidden;
+}
+
+.slide{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;
+  justify-content:center;align-items:center;
+  padding:60px 100px;
+  opacity:0;
+  transform:translateX(60px);
+  transition:opacity var(--transition),transform var(--transition);
+  pointer-events:none;
+  z-index:0;
+}
+.slide.active{
+  opacity:1;transform:translateX(0);
+  pointer-events:auto;z-index:10;
+}
+.slide.prev{
+  opacity:0;transform:translateX(-60px);
+}
+.slide.next{
+  opacity:0;transform:translateX(60px);
+}
+
+/* ============ BACKGROUND EFFECTS ============ */
+.bg-grid{
+  position:fixed;inset:0;z-index:0;
+  background-image:
+    linear-gradient(rgba(0,212,255,0.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,212,255,0.03) 1px,transparent 1px);
+  background-size:60px 60px;
+  pointer-events:none;
+}
+.bg-glow{
+  position:fixed;z-index:0;pointer-events:none;
+  width:600px;height:600px;
+  border-radius:50%;
+  filter:blur(120px);
+  opacity:0.15;
+}
+.glow-1{top:-200px;right:-200px;background:var(--accent)}
+.glow-2{bottom:-200px;left:-200px;background:var(--accent2)}
+
+/* ============ TYPOGRAPHY ============ */
+.slide-title{
+  font-size:42px;font-weight:700;
+  color:var(--text-primary);
+  margin-bottom:8px;
+  position:relative;
+  letter-spacing:1px;
+}
+.slide-title::after{
+  content:'';display:block;
+  width:60px;height:3px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  border-radius:2px;
+  margin-top:12px;
+}
+.slide-title.center::after{margin:12px auto 0}
+.slide-subtitle{
+  font-size:18px;color:var(--text-secondary);
+  margin-bottom:40px;letter-spacing:0.5px;
+}
+.section-tag{
+  display:inline-block;
+  padding:4px 16px;
+  border-radius:20px;
+  font-size:13px;font-weight:600;
+  background:linear-gradient(135deg,rgba(0,212,255,0.15),rgba(124,77,255,0.15));
+  color:var(--accent);
+  border:1px solid rgba(0,212,255,0.2);
+  margin-bottom:16px;
+  letter-spacing:1px;
+}
+
+/* ============ CARDS ============ */
+.card-grid{
+  display:grid;
+  gap:20px;
+  width:100%;
+  max-width:1100px;
+}
+.card-grid.cols-2{grid-template-columns:1fr 1fr}
+.card-grid.cols-3{grid-template-columns:1fr 1fr 1fr}
+.card-grid.cols-4{grid-template-columns:1fr 1fr 1fr 1fr}
+
+.card{
+  background:var(--glass);
+  border:1px solid var(--glass-border);
+  border-radius:var(--radius);
+  padding:28px 24px;
+  backdrop-filter:blur(20px);
+  transition:transform 0.3s,box-shadow 0.3s;
+}
+.card:hover{
+  transform:translateY(-4px);
+  box-shadow:0 12px 40px rgba(0,212,255,0.1);
+}
+.card-icon{
+  width:48px;height:48px;
+  border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;
+  margin-bottom:16px;
+  background:linear-gradient(135deg,rgba(0,212,255,0.15),rgba(124,77,255,0.15));
+  border:1px solid rgba(0,212,255,0.2);
+}
+.card h3{
+  font-size:17px;font-weight:600;
+  color:var(--text-primary);
+  margin-bottom:10px;
+}
+.card p,.card li{
+  font-size:14px;color:var(--text-secondary);
+  line-height:1.8;
+}
+.card ul{list-style:none;padding:0}
+.card ul li::before{
+  content:'';display:inline-block;
+  width:6px;height:6px;border-radius:50%;
+  background:var(--accent);
+  margin-right:10px;
+  vertical-align:middle;
+}
+
+/* ============ COVER ============ */
+.cover{padding:60px}
+.cover-content{text-align:center;max-width:800px}
+.cover-title{
+  font-size:56px;font-weight:800;
+  background:linear-gradient(135deg,#fff 0%,var(--accent) 50%,var(--accent2) 100%);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+  line-height:1.3;
+  margin-bottom:16px;
+}
+.cover-sub{
+  font-size:24px;color:var(--text-secondary);
+  margin-bottom:48px;font-weight:400;
+}
+.cover-info{
+  display:flex;gap:32px;justify-content:center;flex-wrap:wrap;
+}
+.cover-info-item{
+  text-align:center;
+}
+.cover-info-item .label{
+  font-size:12px;color:var(--text-muted);
+  text-transform:uppercase;letter-spacing:2px;
+  margin-bottom:6px;
+}
+.cover-info-item .value{
+  font-size:16px;color:var(--text-primary);font-weight:500;
+}
+.cover-divider{
+  width:80px;height:2px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  margin:32px auto;
+  border-radius:1px;
+}
+.cover-logo{
+  width:120px;height:120px;
+  margin-bottom:24px;
+  filter:drop-shadow(0 0 30px rgba(0,212,255,0.2));
+  opacity:0.9;
+}
+
+/* ============ TABLE ============ */
+.tech-table{
+  width:100%;max-width:900px;
+  border-collapse:separate;
+  border-spacing:0 8px;
+}
+.tech-table th{
+  padding:14px 20px;
+  text-align:left;
+  font-size:13px;font-weight:600;
+  color:var(--accent);
+  text-transform:uppercase;
+  letter-spacing:1.5px;
+  border-bottom:1px solid var(--glass-border);
+}
+.tech-table td{
+  padding:14px 20px;
+  font-size:14px;
+  color:var(--text-secondary);
+  background:var(--glass);
+  border:none;
+}
+.tech-table tr td:first-child{border-radius:10px 0 0 10px}
+.tech-table tr td:last-child{border-radius:0 10px 10px 0}
+.tech-table td:first-child{color:var(--text-primary);font-weight:500}
+
+/* ============ FLOW / TIMELINE ============ */
+.flow{
+  display:flex;align-items:center;gap:0;
+  max-width:1000px;width:100%;
+  justify-content:center;flex-wrap:wrap;
+}
+.flow-step{
+  display:flex;flex-direction:column;align-items:center;
+  text-align:center;flex:1;min-width:140px;
+}
+.flow-num{
+  width:48px;height:48px;
+  border-radius:50%;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;font-weight:700;color:#fff;
+  margin-bottom:12px;
+  box-shadow:0 4px 20px rgba(0,212,255,0.3);
+}
+.flow-label{
+  font-size:14px;color:var(--text-primary);font-weight:500;
+}
+.flow-arrow{
+  font-size:24px;color:var(--accent);opacity:0.4;
+  margin:0 8px;margin-bottom:28px;
+}
+
+/* ============ ARCHITECTURE DIAGRAM ============ */
+.arch-diagram{
+  display:flex;flex-direction:column;align-items:center;gap:16px;
+  max-width:800px;width:100%;
+}
+.arch-layer{
+  display:flex;gap:16px;justify-content:center;flex-wrap:wrap;width:100%;
+}
+.arch-box{
+  padding:16px 28px;
+  border-radius:12px;
+  font-size:15px;font-weight:600;
+  text-align:center;
+  min-width:160px;
+  border:1px solid;
+}
+.arch-box.frontend{
+  background:rgba(0,212,255,0.1);
+  border-color:rgba(0,212,255,0.3);
+  color:var(--accent);
+}
+.arch-box.backend{
+  background:rgba(124,77,255,0.1);
+  border-color:rgba(124,77,255,0.3);
+  color:var(--accent2);
+}
+.arch-box.db{
+  background:rgba(0,229,160,0.1);
+  border-color:rgba(0,229,160,0.3);
+  color:var(--accent3);
+}
+.arch-arrow{
+  font-size:28px;color:var(--text-muted);
+}
+
+/* ============ ENDING ============ */
+.ending-title{
+  font-size:64px;font-weight:800;
+  background:linear-gradient(135deg,var(--accent),var(--accent2),var(--accent3));
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+  margin-bottom:24px;
+}
+.ending-sub{
+  font-size:22px;color:var(--text-secondary);
+}
+
+/* ============ PROGRESS BAR ============ */
+#progress{
+  position:fixed;bottom:0;left:0;
+  height:3px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  transition:width 0.4s;
+  z-index:100;
+}
+
+/* ============ PAGE NUMBER ============ */
+#pageNum{
+  position:fixed;bottom:20px;right:40px;
+  font-size:13px;color:var(--text-muted);
+  z-index:100;font-variant-numeric:tabular-nums;
+}
+
+/* ============ NAV HINTS ============ */
+#navHint{
+  position:fixed;bottom:20px;left:40px;
+  font-size:12px;color:var(--text-muted);
+  z-index:100;opacity:0.5;
+}
+
+/* ============ TWO-COLUMN LAYOUT ============ */
+.two-col{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:40px;width:100%;max-width:1100px;
+  align-items:start;
+}
+.col-title{
+  font-size:20px;font-weight:600;
+  color:var(--text-primary);
+  margin-bottom:16px;
+}
+
+/* ============ HIGHLIGHT BOX ============ */
+.highlight-box{
+  background:linear-gradient(135deg,rgba(0,212,255,0.08),rgba(124,77,255,0.08));
+  border:1px solid rgba(0,212,255,0.15);
+  border-radius:var(--radius);
+  padding:24px 28px;
+  margin-top:20px;
+  max-width:900px;width:100%;
+}
+.highlight-box h4{
+  color:var(--accent);font-size:15px;
+  margin-bottom:10px;font-weight:600;
+}
+.highlight-box p{
+  color:var(--text-secondary);font-size:14px;line-height:1.8;
+}
+
+/* ============ MODULE LIST ============ */
+.module-list{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:12px;max-width:800px;width:100%;
+}
+.module-item{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 20px;
+  background:var(--glass);
+  border:1px solid var(--glass-border);
+  border-radius:12px;
+  font-size:14px;color:var(--text-primary);
+}
+.module-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  flex-shrink:0;
+}
+
+/* ============ RESPONSIVE ============ */
+@media(max-width:900px){
+  .slide{padding:40px 32px}
+  .cover-title{font-size:36px}
+  .slide-title{font-size:30px}
+  .card-grid.cols-3,.card-grid.cols-4{grid-template-columns:1fr 1fr}
+  .two-col{grid-template-columns:1fr}
+  .module-list{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- Background Effects -->
+  <div class="bg-grid"></div>
+  <div class="bg-glow glow-1"></div>
+  <div class="bg-glow glow-2"></div>
+
+  <!-- ==================== SLIDE 1: COVER ==================== -->
+  <div class="slide cover active" data-slide="1">
+    <div class="cover-content">
+      <img src="sust-logo.svg" alt="学校校徽" class="cover-logo">
+      <div class="section-tag">GRADUATION THESIS DEFENSE</div>
+      <div class="cover-title">超市库存管理系统的设计与实现</div>
+      <div class="cover-sub">—— 基于AI Agent协同开发模式的实践探索</div>
+      <div class="cover-divider"></div>
+      <div class="cover-info">
+        <div class="cover-info-item">
+          <div class="label">答辩人</div>
+          <div class="value">XXX</div>
+        </div>
+        <div class="cover-info-item">
+          <div class="label">学号</div>
+          <div class="value">XXXXXXXXXX</div>
+        </div>
+        <div class="cover-info-item">
+          <div class="label">指导教师</div>
+          <div class="value">XXX 教授</div>
+        </div>
+        <div class="cover-info-item">
+          <div class="label">学院专业</div>
+          <div class="value">XXXX学院 · XXXX专业</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 2: 项目背景与研究意义 ==================== -->
+  <div class="slide" data-slide="2">
+    <div class="section-tag">PART 01 · 项目概述</div>
+    <div class="slide-title">项目背景与研究意义</div>
+    <div class="slide-subtitle">为什么要做这个系统</div>
+    <div class="card-grid cols-2">
+      <div class="card">
+        <div class="card-icon">🏪</div>
+        <h3>项目背景</h3>
+        <ul>
+          <li>超市行业信息化发展迅速</li>
+          <li>人工记录效率低、易出错</li>
+          <li>库存信息更新滞后</li>
+          <li>数据统计困难，决策缺乏依据</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-icon">🎯</div>
+        <h3>研究意义</h3>
+        <ul>
+          <li>提高库存管理效率</li>
+          <li>降低库存积压风险</li>
+          <li>提升数据准确性</li>
+          <li>支持经营决策分析</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 3: 项目目标与研究内容 ==================== -->
+  <div class="slide" data-slide="3">
+    <div class="section-tag">PART 01 · 项目概述</div>
+    <div class="slide-title">项目目标与研究内容</div>
+    <div class="slide-subtitle">要做什么、怎么做</div>
+    <div class="two-col">
+      <div>
+        <div class="col-title">🎯 项目目标</div>
+        <div class="module-list">
+          <div class="module-item"><div class="module-dot"></div>商品信息管理</div>
+          <div class="module-item"><div class="module-dot"></div>库存管理</div>
+          <div class="module-item"><div class="module-dot"></div>采购管理</div>
+          <div class="module-item"><div class="module-dot"></div>销售管理</div>
+          <div class="module-item"><div class="module-dot"></div>数据统计分析</div>
+        </div>
+      </div>
+      <div>
+        <div class="col-title">📋 研究内容</div>
+        <div class="module-list">
+          <div class="module-item"><div class="module-dot"></div>系统需求分析</div>
+          <div class="module-item"><div class="module-dot"></div>系统设计</div>
+          <div class="module-item"><div class="module-dot"></div>系统实现</div>
+          <div class="module-item"><div class="module-dot"></div>系统测试</div>
+          <div class="module-item"><div class="module-dot"></div>AI协同开发实践</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 4: 技术路线与开发环境 ==================== -->
+  <div class="slide" data-slide="4">
+    <div class="section-tag">PART 02 · 需求分析</div>
+    <div class="slide-title">技术路线与开发环境</div>
+    <div class="slide-subtitle">用什么技术、怎么开发</div>
+    <div class="card-grid cols-4">
+      <div class="card">
+        <div class="card-icon">⚡</div>
+        <h3>前端</h3>
+        <p>Vue.js 渐进式框架</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔧</div>
+        <h3>后端</h3>
+        <p>Spring Boot 框架</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🗄️</div>
+        <h3>数据库</h3>
+        <p>MySQL 关系型数据库</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🤖</div>
+        <h3>AI辅助</h3>
+        <p>ChatGPT / Cursor / Copilot</p>
+      </div>
+    </div>
+    <div class="highlight-box" style="margin-top:32px">
+      <h4>💡 AI协同开发体现</h4>
+      <p>AI辅助技术调研与方案制定，辅助架构设计与技术选型评估，实现人机协同的高效开发模式</p>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 5: 可行性分析 ==================== -->
+  <div class="slide" data-slide="5">
+    <div class="section-tag">PART 02 · 需求分析</div>
+    <div class="slide-title">可行性分析</div>
+    <div class="slide-subtitle">从三个维度论证项目的可行性</div>
+    <div class="card-grid cols-3">
+      <div class="card">
+        <div class="card-icon">⚙️</div>
+        <h3>技术可行性</h3>
+        <ul>
+          <li>技术栈成熟稳定</li>
+          <li>开发框架完善</li>
+          <li>社区资源丰富</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-icon">💰</div>
+        <h3>经济可行性</h3>
+        <ul>
+          <li>开发成本较低</li>
+          <li>部署成本可控</li>
+          <li>开源技术栈零授权费</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-icon">👤</div>
+        <h3>操作可行性</h3>
+        <ul>
+          <li>界面友好直观</li>
+          <li>易于学习使用</li>
+          <li>操作流程简洁</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 6: 业务流程分析 ==================== -->
+  <div class="slide" data-slide="6">
+    <div class="section-tag">PART 02 · 需求分析</div>
+    <div class="slide-title">业务流程分析</div>
+    <div class="slide-subtitle">核心业务流程梳理</div>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-label">商品采购</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-label">商品入库</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-label">库存管理</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-label">商品销售</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-num">5</div>
+        <div class="flow-label">数据统计</div>
+      </div>
+    </div>
+    <div class="highlight-box" style="margin-top:40px">
+      <h4>🤖 AI协同开发体现</h4>
+      <p>利用AI Agent辅助梳理业务流程，辅助整理系统需求，提升需求分析效率与准确性</p>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 7: 系统需求分析 ==================== -->
+  <div class="slide" data-slide="7">
+    <div class="section-tag">PART 02 · 需求分析</div>
+    <div class="slide-title">系统需求分析</div>
+    <div class="slide-subtitle">功能需求与非功能需求</div>
+    <div class="two-col">
+      <div>
+        <div class="col-title">📌 功能需求</div>
+        <div class="module-list">
+          <div class="module-item"><div class="module-dot"></div>用户管理</div>
+          <div class="module-item"><div class="module-dot"></div>商品管理</div>
+          <div class="module-item"><div class="module-dot"></div>库存管理</div>
+          <div class="module-item"><div class="module-dot"></div>采购管理</div>
+          <div class="module-item"><div class="module-dot"></div>销售管理</div>
+          <div class="module-item"><div class="module-dot"></div>数据统计分析</div>
+        </div>
+      </div>
+      <div>
+        <div class="col-title">🔒 非功能需求</div>
+        <div class="module-list">
+          <div class="module-item"><div class="module-dot"></div>安全性</div>
+          <div class="module-item"><div class="module-dot"></div>稳定性</div>
+          <div class="module-item"><div class="module-dot"></div>可维护性</div>
+          <div class="module-item"><div class="module-dot"></div>可扩展性</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 8: 系统用例分析 ==================== -->
+  <div class="slide" data-slide="8">
+    <div class="section-tag">PART 02 · 需求分析</div>
+    <div class="slide-title">系统用例分析</div>
+    <div class="slide-subtitle">用户角色与核心用例</div>
+    <div class="card-grid cols-2">
+      <div class="card">
+        <div class="card-icon">👨‍💼</div>
+        <h3>系统管理员</h3>
+        <ul>
+          <li>用户账号管理</li>
+          <li>系统配置管理</li>
+          <li>数据统计与报表</li>
+          <li>权限分配管理</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-icon">📦</div>
+        <h3>仓库管理员</h3>
+        <ul>
+          <li>商品入库出库操作</li>
+          <li>库存盘点与查询</li>
+          <li>采购登记与跟踪</li>
+          <li>库存预警处理</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 9: 系统总体架构设计 ==================== -->
+  <div class="slide" data-slide="9">
+    <div class="section-tag">PART 03 · 系统设计</div>
+    <div class="slide-title">系统总体架构设计</div>
+    <div class="slide-subtitle">前后端分离架构</div>
+    <div class="arch-diagram">
+      <div class="arch-layer">
+        <div class="arch-box frontend">Vue.js 前端<br><small style="opacity:0.6">Element UI · Axios · Vue Router</small></div>
+      </div>
+      <div class="arch-arrow">↕</div>
+      <div class="arch-layer">
+        <div class="arch-box backend">Spring Boot 后端<br><small style="opacity:0.6">RESTful API · MyBatis Plus · JWT</small></div>
+      </div>
+      <div class="arch-arrow">↕</div>
+      <div class="arch-layer">
+        <div class="arch-box db">MySQL 数据库</div>
+      </div>
+    </div>
+    <div class="highlight-box" style="margin-top:32px">
+      <h4>🤖 AI协同开发体现</h4>
+      <p>AI辅助架构设计方案分析，辅助技术选型评估，提供多种架构方案对比建议</p>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 10: 功能模块设计 ==================== -->
+  <div class="slide" data-slide="10">
+    <div class="section-tag">PART 03 · 系统设计</div>
+    <div class="slide-title">功能模块设计</div>
+    <div class="slide-subtitle">六大核心功能模块</div>
+    <div class="card-grid cols-3">
+      <div class="card">
+        <div class="card-icon">👤</div>
+        <h3>用户管理</h3>
+        <p>用户注册、登录、角色权限管理</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏷️</div>
+        <h3>商品管理</h3>
+        <p>商品增删改查、分类管理</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📦</div>
+        <h3>库存管理</h3>
+        <p>入库出库、库存查询、预警</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🛒</div>
+        <h3>采购管理</h3>
+        <p>采购登记、查询、统计</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">💹</div>
+        <h3>销售管理</h3>
+        <p>销售登记、查询、统计</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <h3>数据统计</h3>
+        <p>库存统计、销售分析、趋势</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 11: 数据库设计思路 ==================== -->
+  <div class="slide" data-slide="11">
+    <div class="section-tag">PART 03 · 系统设计</div>
+    <div class="slide-title">数据库设计思路</div>
+    <div class="slide-subtitle">设计原则与AI辅助</div>
+    <div class="card-grid cols-4">
+      <div class="card">
+        <div class="card-icon">🔗</div>
+        <h3>数据完整性</h3>
+        <p>主键、外键约束确保数据一致</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚖️</div>
+        <h3>数据一致性</h3>
+        <p>事务机制保障操作原子性</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔐</div>
+        <h3>数据安全性</h3>
+        <p>权限控制与敏感数据加密</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📐</div>
+        <h3>减少冗余</h3>
+        <p>规范化设计降低数据重复</p>
+      </div>
+    </div>
+    <div class="highlight-box" style="margin-top:32px">
+      <h4>🤖 AI协同开发体现</h4>
+      <p>AI辅助识别业务实体，辅助设计数据库表结构，优化字段定义与索引策略</p>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 12: E-R图设计 ==================== -->
+  <div class="slide" data-slide="12">
+    <div class="section-tag">PART 03 · 系统设计</div>
+    <div class="slide-title">E-R图设计</div>
+    <div class="slide-subtitle">核心实体与关系</div>
+    <div class="card-grid cols-5" style="grid-template-columns:repeat(5,1fr)">
+      <div class="card" style="text-align:center">
+        <div class="card-icon" style="margin:0 auto 12px">👤</div>
+        <h3>用户</h3>
+        <p>编号、名称、角色</p>
+      </div>
+      <div class="card" style="text-align:center">
+        <div class="card-icon" style="margin:0 auto 12px">🏷️</div>
+        <h3>商品</h3>
+        <p>编号、名称、分类</p>
+      </div>
+      <div class="card" style="text-align:center">
+        <div class="card-icon" style="margin:0 auto 12px">📦</div>
+        <h3>库存</h3>
+        <p>数量、预警值</p>
+      </div>
+      <div class="card" style="text-align:center">
+        <div class="card-icon" style="margin:0 auto 12px">🛒</div>
+        <h3>采购</h3>
+        <p>采购单、供应商</p>
+      </div>
+      <div class="card" style="text-align:center">
+        <div class="card-icon" style="margin:0 auto 12px">💹</div>
+        <h3>销售</h3>
+        <p>销售单、客户</p>
+      </div>
+    </div>
+    <div style="margin-top:40px;text-align:center;color:var(--text-muted);font-size:14px">
+      ↑ 此处替换为实际 E-R 图截图 ↑
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 13: 核心数据表设计 ==================== -->
+  <div class="slide" data-slide="13">
+    <div class="section-tag">PART 03 · 系统设计</div>
+    <div class="slide-title">核心数据表设计</div>
+    <div class="slide-subtitle">主要数据表结构</div>
+    <table class="tech-table">
+      <thead>
+        <tr><th>数据表</th><th>核心字段</th><th>说明</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>User 用户表</td><td>id, username, password, role</td><td>存储用户账号与角色信息</td></tr>
+        <tr><td>Product 商品表</td><td>id, name, category, price</td><td>存储商品基本信息</td></tr>
+        <tr><td>Inventory 库存表</td><td>id, product_id, quantity, threshold</td><td>库存数量与预警阈值</td></tr>
+        <tr><td>Purchase 采购表</td><td>id, product_id, quantity, supplier</td><td>采购单据信息</td></tr>
+        <tr><td>Sale 销售表</td><td>id, product_id, quantity, amount</td><td>销售记录信息</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ==================== SLIDE 14: 登录与权限管理 ==================== -->
+  <div class="slide" data-slide="14">
+    <div class="section-tag">PART 04 · 系统实现</div>
+    <div class="slide-title">登录与权限管理模块</div>
+    <div class="slide-subtitle">系统安全入口</div>
+    <div class="two-col">
+      <div>
+        <div class="col-title">🔐 功能介绍</div>
+        <div class="module-list" style="grid-template-columns:1fr">
+          <div class="module-item"><div class="module-dot"></div>用户登录与身份验证</div>
+          <div class="module-item"><div class="module-dot"></div>JWT Token 权限验证</div>
+          <div class="module-item"><div class="module-dot"></div>基于角色的访问控制</div>
+        </div>
+        <div class="highlight-box" style="margin-top:20px">
+          <h4>🤖 AI协同</h4>
+          <p>AI辅助认证逻辑开发，辅助异常处理与安全策略优化</p>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center">
+        <div class="card" style="width:100%;text-align:center;padding:40px;min-height:240px;display:flex;flex-direction:column;align-items:center;justify-content:center">
+          <div style="font-size:48px;margin-bottom:16px">🖥️</div>
+          <div style="color:var(--text-muted);font-size:14px">↑ 登录界面截图 ↑</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 15: 商品管理模块 ==================== -->
+  <div class="slide" data-slide="15">
+    <div class="section-tag">PART 04 · 系统实现</div>
+    <div class="slide-title">商品管理模块</div>
+    <div class="slide-subtitle">商品全生命周期管理</div>
+    <div class="two-col">
+      <div>
+        <div class="col-title">🏷️ 功能介绍</div>
+        <div class="flow" style="flex-direction:column;align-items:flex-start;gap:16px">
+          <div class="module-item" style="width:100%"><div class="module-dot"></div>商品新增与信息录入</div>
+          <div class="module-item" style="width:100%"><div class="module-dot"></div>商品信息修改</div>
+          <div class="module-item" style="width:100%"><div class="module-dot"></div>商品删除与下架</div>
+          <div class="module-item" style="width:100%"><div class="module-dot"></div>商品多条件查询</div>
+        </div>
+        <div class="highlight-box" style="margin-top:20px">
+          <h4>🤖 AI协同</h4>
+          <p>AI辅助生成CRUD代码框架，提升开发效率</p>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center">
+        <div class="card" style="width:100%;text-align:center;padding:40px;min-height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center">
+          <div style="font-size:48px;margin-bottom:16px">📋</div>
+          <div style="color:var(--text-muted);font-size:14px">↑ 商品管理界面截图 ↑</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 16: 库存管理模块 ==================== -->
+  <div class="slide" data-slide="16">
+    <div class="section-tag">PART 04 · 系统实现</div>
+    <div class="slide-title">库存管理模块</div>
+    <div class="slide-subtitle">库存核心业务处理</div>
+    <div class="two-col">
+      <div>
+        <div class="col-title">📦 功能介绍</div>
+        <div class="module-list" style="grid-template-columns:1fr">
+          <div class="module-item"><div class="module-dot"></div>商品入库操作</div>
+          <div class="module-item"><div class="module-dot"></div>商品出库操作</div>
+          <div class="module-item"><div class="module-dot"></div>库存实时查询</div>
+        </div>
+        <div class="highlight-box" style="margin-top:20px">
+          <h4>🤖 AI协同</h4>
+          <p>AI辅助优化库存业务逻辑，设计库存变动追踪机制</p>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center">
+        <div class="card" style="width:100%;text-align:center;padding:40px;min-height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center">
+          <div style="font-size:48px;margin-bottom:16px">📊</div>
+          <div style="color:var(--text-muted);font-size:14px">↑ 库存管理界面截图 ↑</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 17: 库存预警功能 ==================== -->
+  <div class="slide" data-slide="17">
+    <div class="section-tag">PART 04 · 系统实现</div>
+    <div class="slide-title">库存预警功能</div>
+    <div class="slide-subtitle">智能库存监控</div>
+    <div class="card-grid cols-2">
+      <div class="card">
+        <div class="card-icon">⚙️</div>
+        <h3>设置预警阈值</h3>
+        <p>为每种商品设置最低库存预警值，当库存低于阈值时自动触发预警通知</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔔</div>
+        <h3>自动预警通知</h3>
+        <p>系统自动监控库存水平，实时预警，避免缺货影响正常经营</p>
+      </div>
+    </div>
+    <div class="highlight-box" style="margin-top:32px">
+      <h4>🤖 AI协同开发体现</h4>
+      <p>AI辅助设计库存预警规则，优化预警触发逻辑与通知策略</p>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 18: 采购管理模块 ==================== -->
+  <div class="slide" data-slide="18">
+    <div class="section-tag">PART 04 · 系统实现</div>
+    <div class="slide-title">采购管理模块</div>
+    <div class="slide-subtitle">采购全流程管理</div>
+    <div class="two-col">
+      <div>
+        <div class="col-title">🛒 功能介绍</div>
+        <div class="module-list" style="grid-template-columns:1fr">
+          <div class="module-item"><div class="module-dot"></div>采购登记与录入</div>
+          <div class="module-item"><div class="module-dot"></div>采购记录查询</div>
+          <div class="module-item"><div class="module-dot"></div>采购数据统计</div>
+        </div>
+        <div class="highlight-box" style="margin-top:20px">
+          <h4>🤖 AI协同</h4>
+          <p>AI辅助生成业务代码模板，加速开发流程</p>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center">
+        <div class="card" style="width:100%;text-align:center;padding:40px;min-height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center">
+          <div style="font-size:48px;margin-bottom:16px">🧾</div>
+          <div style="color:var(--text-muted);font-size:14px">↑ 采购管理界面截图 ↑</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 19: 销售管理模块 ==================== -->
+  <div class="slide" data-slide="19">
+    <div class="section-tag">PART 04 · 系统实现</div>
+    <div class="slide-title">销售管理模块</div>
+    <div class="slide-subtitle">销售业务管理</div>
+    <div class="two-col">
+      <div>
+        <div class="col-title">💹 功能介绍</div>
+        <div class="module-list" style="grid-template-columns:1fr">
+          <div class="module-item"><div class="module-dot"></div>销售登记与录入</div>
+          <div class="module-item"><div class="module-dot"></div>销售记录查询</div>
+          <div class="module-item"><div class="module-dot"></div>销售数据统计</div>
+        </div>
+        <div class="highlight-box" style="margin-top:20px">
+          <h4>🤖 AI协同</h4>
+          <p>AI辅助分析业务逻辑设计，优化销售数据处理流程</p>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center">
+        <div class="card" style="width:100%;text-align:center;padding:40px;min-height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center">
+          <div style="font-size:48px;margin-bottom:16px">📈</div>
+          <div style="color:var(--text-muted);font-size:14px">↑ 销售管理界面截图 ↑</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 20: 数据统计分析模块 ==================== -->
+  <div class="slide" data-slide="20">
+    <div class="section-tag">PART 04 · 系统实现</div>
+    <div class="slide-title">数据统计分析模块</div>
+    <div class="slide-subtitle">数据驱动决策</div>
+    <div class="card-grid cols-3">
+      <div class="card">
+        <div class="card-icon">📦</div>
+        <h3>库存统计</h3>
+        <p>库存总量、分类占比、周转率分析</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">💹</div>
+        <h3>销售统计</h3>
+        <p>销售额、销量排行、时段对比</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📈</div>
+        <h3>趋势分析</h3>
+        <p>销售趋势、库存变化、预测分析</p>
+      </div>
+    </div>
+    <div class="highlight-box" style="margin-top:32px">
+      <h4>🤖 AI协同开发体现</h4>
+      <p>AI辅助生成统计SQL，辅助设计图表展示方案，提升数据分析效率</p>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 21: 系统测试设计 ==================== -->
+  <div class="slide" data-slide="21">
+    <div class="section-tag">PART 05 · 系统测试</div>
+    <div class="slide-title">系统测试设计</div>
+    <div class="slide-subtitle">保障系统质量</div>
+    <div class="card-grid cols-3">
+      <div class="card">
+        <div class="card-icon">✅</div>
+        <h3>功能测试</h3>
+        <p>验证各模块功能是否符合需求规格，覆盖核心业务场景</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔍</div>
+        <h3>边界测试</h3>
+        <p>测试边界条件与极端输入，确保系统在边缘场景下的稳定性</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚠️</div>
+        <h3>异常测试</h3>
+        <p>模拟异常输入与错误操作，验证系统的容错与异常处理能力</p>
+      </div>
+    </div>
+    <div class="highlight-box" style="margin-top:32px">
+      <h4>🤖 AI协同开发体现</h4>
+      <p>AI辅助生成测试用例，辅助设计异常场景，提升测试覆盖率</p>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 22: 测试结果分析 ==================== -->
+  <div class="slide" data-slide="22">
+    <div class="section-tag">PART 05 · 系统测试</div>
+    <div class="slide-title">测试结果分析</div>
+    <div class="slide-subtitle">测试结论与验证</div>
+    <table class="tech-table">
+      <thead>
+        <tr><th>测试类型</th><th>测试用例数</th><th>通过数</th><th>通过率</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>功能测试</td><td>XX</td><td>XX</td><td>100%</td></tr>
+        <tr><td>边界测试</td><td>XX</td><td>XX</td><td>100%</td></tr>
+        <tr><td>异常测试</td><td>XX</td><td>XX</td><td>100%</td></tr>
+      </tbody>
+    </table>
+    <div class="card-grid cols-2" style="margin-top:32px;max-width:700px">
+      <div class="card" style="text-align:center">
+        <div style="font-size:36px;margin-bottom:8px">✅</div>
+        <h3>系统运行稳定</h3>
+        <p>各模块运行正常，无崩溃</p>
+      </div>
+      <div class="card" style="text-align:center">
+        <div style="font-size:36px;margin-bottom:8px">✅</div>
+        <h3>功能满足需求</h3>
+        <p>核心功能全部通过验证</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 23: AI协同开发实践 ==================== -->
+  <div class="slide" data-slide="23">
+    <div class="section-tag">PART 06 · AI协同开发</div>
+    <div class="slide-title">AI Agent协同开发实践</div>
+    <div class="slide-subtitle">人机协同，高效开发</div>
+    <table class="tech-table">
+      <thead>
+        <tr><th>开发阶段</th><th>AI辅助内容</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>需求分析</td><td>业务流程梳理、需求文档整理</td></tr>
+        <tr><td>系统设计</td><td>架构方案建议、技术选型评估</td></tr>
+        <tr><td>数据库设计</td><td>ER模型辅助设计、表结构优化</td></tr>
+        <tr><td>系统开发</td><td>代码生成与优化、Bug修复辅助</td></tr>
+        <tr><td>系统测试</td><td>测试用例生成、异常场景设计</td></tr>
+        <tr><td>文档编写</td><td>论文与文档辅助撰写</td></tr>
+      </tbody>
+    </table>
+    <div class="highlight-box" style="margin-top:24px">
+      <h4>💡 协同开发模式</h4>
+      <p>开发者主导设计与决策，AI Agent提供辅助支持，实现人机协同的高效开发模式</p>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 24: 项目总结与展望 ==================== -->
+  <div class="slide" data-slide="24">
+    <div class="section-tag">PART 06 · AI协同开发</div>
+    <div class="slide-title">项目总结与展望</div>
+    <div class="slide-subtitle">成果、不足与未来</div>
+    <div class="card-grid cols-3">
+      <div class="card">
+        <div class="card-icon">🏆</div>
+        <h3>项目总结</h3>
+        <ul>
+          <li>完成系统设计与实现</li>
+          <li>实现核心业务功能</li>
+          <li>验证AI协同开发可行性</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔍</div>
+        <h3>项目不足</h3>
+        <ul>
+          <li>功能扩展性有待提升</li>
+          <li>数据分析能力有限</li>
+          <li>移动端适配待完善</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-icon">🚀</div>
+        <h3>未来展望</h3>
+        <ul>
+          <li>智能补货预测</li>
+          <li>销售趋势分析</li>
+          <li>AI智能库存优化</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 25: 致谢 ==================== -->
+  <div class="slide" data-slide="25">
+    <div class="ending-title">感谢聆听</div>
+    <div class="ending-sub">请各位老师批评指正</div>
+    <div style="margin-top:60px;color:var(--text-muted);font-size:14px">
+      答辩人：XXX &nbsp;|&nbsp; 指导教师：XXX 教授
+    </div>
+  </div>
+
+</div>
+
+<!-- Progress Bar -->
+<div id="progress"></div>
+<div id="pageNum">1 / 25</div>
+<div id="navHint">← → 或点击翻页</div>
+
+<script>
+(function(){
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  let current = 0;
+
+  function go(idx){
+    if(idx<0||idx>=total||idx===current) return;
+    slides[current].classList.remove('active');
+    slides[current].classList.add(idx>current?'prev':'');
+    setTimeout(()=>slides[current===idx?current:current].classList.remove('prev'),500);
+    current = idx;
+    slides[current].classList.remove('prev');
+    slides[current].classList.add('active');
+    document.getElementById('progress').style.width = ((current+1)/total*100)+'%';
+    document.getElementById('pageNum').textContent = (current+1)+' / '+total;
+  }
+
+  function next(){go(current+1)}
+  function prev(){go(current-1)}
+
+  document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){e.preventDefault();next()}
+    if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();prev()}
+    if(e.key==='Home'){e.preventDefault();go(0)}
+    if(e.key==='End'){e.preventDefault();go(total-1)}
+  });
+
+  // Click navigation
+  document.getElementById('app').addEventListener('click',e=>{
+    const x = e.clientX / window.innerWidth;
+    if(x>0.5) next(); else prev();
+  });
+
+  // Touch support
+  let touchStartX = 0;
+  document.addEventListener('touchstart',e=>{touchStartX=e.touches[0].clientX});
+  document.addEventListener('touchend',e=>{
+    const diff = touchStartX - e.changedTouches[0].clientX;
+    if(Math.abs(diff)>50){diff>0?next():prev()}
+  });
+
+  // Init progress
+  document.getElementById('progress').style.width = (1/total*100)+'%';
+})();
+</script>
+</body>
+</html>

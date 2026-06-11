@@ -745,11 +745,40 @@ button {
   --top-h: 60px;
   --radius: 14px;
   --admin-zoom: 0.85;
+  --scrollbar-thumb: rgba(74, 88, 120, 0.30);
+  --scrollbar-thumb-hover: rgba(47, 124, 255, 0.48);
   font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
 }
 
 body {
   background: var(--bg-0);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  background-clip: padding-box;
+  border: 1px solid transparent;
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
 }
 
 a {
@@ -860,7 +889,7 @@ a {
 }
 
 .nav::-webkit-scrollbar {
-  width: 7px;
+  width: 6px;
 }
 
 .nav::-webkit-scrollbar-track {
