@@ -289,6 +289,8 @@ class PurchaseInboundMapperTest {
                 eq("%cola%"),
                 eq("%cola%"),
                 eq("%cola%"),
+                eq((String) null),
+                eq((String) null),
                 eq(10),
                 eq(20)
         );
@@ -394,7 +396,9 @@ class PurchaseInboundMapperTest {
                 eq("%cola%"),
                 eq("%cola%"),
                 eq("%cola%"),
-                eq("%cola%")
+                eq("%cola%"),
+                eq((String) null),
+                eq((String) null)
         );
 
         String sql = sqlCaptor.getValue();
