@@ -52,6 +52,31 @@ for (const token of [
 }
 
 for (const token of [
+  '库存流水',
+  '调拨管理',
+  '库存流水需后端提供变更日志分页接口',
+  '调拨功能当前未接入仓库接口'
+]) {
+  if (view.includes(token)) failures.push(`InventoryCenterView should not include removed entry ${token}`)
+}
+
+if (!view.includes('class="kpi-row inventory-kpi-row"')) {
+  failures.push('InventoryCenterView KPI row should use prototype kpi-row class')
+}
+if (!view.includes('class="kpi inventory-kpi-card"')) {
+  failures.push('InventoryCenterView KPI cards should use prototype kpi class')
+}
+if (!view.includes('class="icon-wrap"')) {
+  failures.push('InventoryCenterView KPI cards should include prototype icon-wrap')
+}
+if (!view.includes('class="delta"')) {
+  failures.push('InventoryCenterView KPI cards should include prototype delta badge')
+}
+if (view.includes('class="inventory-kpi"') || /\.inventory-kpi\s*\{/.test(styles)) {
+  failures.push('InventoryCenterView should not keep the old inventory-kpi card style')
+}
+
+for (const token of [
   '.inventory-center-page',
   '.inventory-kpi-row',
   '.inventory-filter-bar',

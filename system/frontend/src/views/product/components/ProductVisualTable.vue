@@ -9,15 +9,14 @@
             <th class="col-check">
               <input type="checkbox" class="check" :checked="allPageSelected" @change="$emit('toggle-page')" />
             </th>
-            <th style="min-width: 280px">商品 / SKU</th>
-            <th>品类 · 条码</th>
-            <th>售价 / 成本</th>
-            <th>毛利</th>
-            <th>库存</th>
-            <th>SKU数</th>
+            <th style="min-width: 300px">商品名称 / SPU 编码</th>
+            <th>品牌</th>
+            <th>基础品类</th>
+            <th style="min-width: 240px">基础商品属性</th>
+            <th>关联 SKU</th>
             <th>状态</th>
             <th>更新时间</th>
-            <th style="width: 132px">操作</th>
+            <th style="width: 120px">操作</th>
           </tr>
         </thead>
         <tbody v-if="pagedRows.length">
@@ -25,7 +24,7 @@
             v-for="row in pagedRows"
             :key="row.id"
             :class="{ checked: selectedIds.has(row.id) }"
-            @click="$emit('action', `${row.productName} 详情面板待接入`)"
+            @click="$emit('action', `${row.productName} 档案详情待接入`)"
           >
             <td class="col-check" @click.stop>
               <input type="checkbox" class="check row-check" :checked="selectedIds.has(row.id)" @change="$emit('toggle-row', row.id)" />
@@ -37,68 +36,61 @@
                   <div class="name">
                     {{ row.productName }}
                     <span v-if="row.isNew" class="tag tag-new">NEW</span>
-                    <span v-else-if="row.isLow" class="tag tag-promo">预警</span>
                   </div>
                   <div class="sub-sku">
-                    <span class="bar">{{ row.skuCode || row.productCode }}</span>
-                    <span>{{ row.skuName || '默认规格' }}</span>
+                    <span class="bar">{{ row.spuCode || '保存后生成' }}</span>
                   </div>
                 </div>
               </div>
             </td>
             <td>
-              <b>{{ row.categoryName || '未分类' }}</b>
-              <div class="modern-muted">{{ row.brandName || '未设置品牌' }}</div>
-              <div class="modern-muted">{{ row.barcode || '暂无条码' }}</div>
+              <b class="archive-brand">{{ row.brandName || '未设置品牌' }}</b>
             </td>
             <td>
-              <div class="price-block">
-                <div class="sell">{{ money(row.salePrice) }}</div>
-                <div class="cost">成本 {{ money(row.purchasePrice) }}</div>
+              <span class="cat-tag">
+                <span class="swatch" :style="{ background: row.categoryColor }"></span>
+                {{ row.categoryName || '未分类' }}
+              </span>
+            </td>
+            <td>
+              <div class="archive-attrs">
+                <span v-for="attr in row.attrTags" :key="`${attr.key}-${attr.value}`" class="attr">
+                  <span class="k">{{ attr.key }}</span>
+                  <span class="v">{{ attr.value }}</span>
+                </span>
               </div>
             </td>
             <td>
-              <div class="modern-margin-ring" :style="{ '--mgn': row.margin, '--mgn-c': row.marginColor }">
-                <div class="ring"></div>
-                <div class="val" :style="{ color: row.marginColor }">{{ row.margin }}%</div>
-              </div>
+              <button class="sku-link" type="button" title="查看该 SPU 下的 SKU" @click.stop="$emit('manage-sku', row)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                  <polyline points="2 17 12 22 22 17" />
+                  <polyline points="2 12 12 17 22 12" />
+                </svg>
+                <b>{{ formatNumber(row.skuCount) }}</b> 个
+              </button>
             </td>
-            <td>
-              <div class="stock-text">
-                <span class="cur">{{ formatNumber(row.quantity) }}</span>
-                <span class="sep">/</span>
-                <span class="max">{{ formatNumber(row.safeStock) }}</span>
-              </div>
-              <div class="stock-bar"><i :class="row.stockClass" :style="{ width: `${row.stockPercent}%` }"></i></div>
-            </td>
-            <td class="num">{{ row.skuCount }}</td>
             <td><span class="pill" :class="row.statusClass"><span class="dot"></span>{{ row.statusLabel }}</span></td>
             <td class="modern-time">{{ row.updateTime }}</td>
             <td @click.stop>
               <div class="row-actions">
-                <button type="button" title="查看" @click="$emit('action', `${row.productName} 详情面板待接入`)">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <button type="button" title="查看档案" @click="$emit('action', `${row.productName} 档案详情待接入`)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                     <circle cx="12" cy="12" r="3" />
                   </svg>
                 </button>
-                <button type="button" title="编辑" @click="$emit('edit')">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <button type="button" title="编辑档案" @click="$emit('edit', row)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 20h9" />
                     <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                   </svg>
                 </button>
-                <button type="button" title="补货" @click="$emit('action', `${row.productName} 已加入补货清单`)">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="9" cy="21" r="1" />
-                    <circle cx="20" cy="21" r="1" />
-                    <path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6" />
-                  </svg>
-                </button>
-                <button class="danger" type="button" title="下架" @click="$emit('action', `${row.productName} 下架动作需在旧版维护页确认`, 'error')">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                <button type="button" title="管理 SKU" @click="$emit('manage-sku', row)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                    <polyline points="2 17 12 22 22 17" />
+                    <polyline points="2 12 12 17 22 12" />
                   </svg>
                 </button>
               </div>
@@ -132,6 +124,7 @@
         <span>条</span>
       </div>
       <div class="pager">
+        <button type="button" :disabled="query.page <= 1" @click="$emit('change-page', 1)">«</button>
         <button type="button" :disabled="query.page <= 1" @click="$emit('change-page', query.page - 1)">‹</button>
         <button
           v-for="page in pageButtons"
@@ -142,16 +135,20 @@
         >
           {{ page }}
         </button>
+        <span v-if="showLastGap" class="gap">…</span>
+        <button v-if="showLastShortcut" type="button" @click="$emit('change-page', pageCount)">{{ pageCount }}</button>
         <button type="button" :disabled="query.page >= pageCount" @click="$emit('change-page', query.page + 1)">›</button>
+        <button type="button" :disabled="query.page >= pageCount" @click="$emit('change-page', pageCount)">»</button>
       </div>
     </div>
   </article>
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import ProductStatusTabs from './ProductStatusTabs.vue'
 
-defineProps({
+const props = defineProps({
   query: {
     type: Object,
     required: true
@@ -196,10 +193,21 @@ defineEmits([
   'toggle-row',
   'action',
   'edit',
+  'manage-sku',
   'reset',
   'reset-page',
   'change-page'
 ])
+
+const showLastShortcut = computed(() => {
+  return props.pageCount > 0 && !props.pageButtons.includes(props.pageCount)
+})
+
+const showLastGap = computed(() => {
+  if (props.pageButtons.length === 0) return false
+  const lastButton = props.pageButtons[props.pageButtons.length - 1]
+  return props.pageCount > lastButton + 1
+})
 
 function formatNumber(value) {
   return Number(value || 0).toLocaleString('zh-CN')

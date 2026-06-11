@@ -3,6 +3,7 @@ package com.supermarket.inventory.config;
 import com.supermarket.inventory.auth.service.PasswordService;
 import com.supermarket.inventory.user.entity.User;
 import com.supermarket.inventory.user.mapper.UserMapper;
+import com.supermarket.inventory.user.service.UserService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
@@ -18,6 +19,7 @@ public class BootstrapDataInitializer implements CommandLineRunner {
     private static final String DEFAULT_CONTACT_PHONE = "00000000000";
 
     private final UserMapper userMapper;
+    private final UserService userService;
     private final PasswordService passwordService;
     private final boolean enabled;
     private final String adminUsername;
@@ -27,6 +29,7 @@ public class BootstrapDataInitializer implements CommandLineRunner {
 
     public BootstrapDataInitializer(
             UserMapper userMapper,
+            UserService userService,
             PasswordService passwordService,
             @Value("${app.bootstrap.enabled}") boolean enabled,
             @Value("${app.bootstrap.admin-username}") String adminUsername,
@@ -35,6 +38,7 @@ public class BootstrapDataInitializer implements CommandLineRunner {
             @Value("${app.bootstrap.user-password}") String userPassword
     ) {
         this.userMapper = userMapper;
+        this.userService = userService;
         this.passwordService = passwordService;
         this.enabled = enabled;
         this.adminUsername = adminUsername;
@@ -57,6 +61,7 @@ public class BootstrapDataInitializer implements CommandLineRunner {
         Long userRoleId = userMapper.findRoleByCode("USER")
                 .map(role -> role.getId())
                 .orElseGet(() -> userMapper.insertRole("普通用户", "USER", "普通业务用户"));
+        userService.ensureDefaultRolePermissions(adminRoleId, userRoleId);
 
         ensureUser(adminUsername, adminPassword, "系统管理员", adminRoleId);
         ensureUser(userUsername, userPassword, "普通用户", userRoleId);

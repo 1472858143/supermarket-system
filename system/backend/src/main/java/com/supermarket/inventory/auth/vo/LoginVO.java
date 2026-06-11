@@ -9,16 +9,22 @@ public class LoginVO {
     private String username;
     private String realName;
     private List<String> roles;
+    private List<String> permissions;
 
     public LoginVO() {
     }
 
     public LoginVO(String token, Long userId, String username, String realName, List<String> roles) {
+        this(token, userId, username, realName, roles, List.of());
+    }
+
+    public LoginVO(String token, Long userId, String username, String realName, List<String> roles, List<String> permissions) {
         this.token = token;
         this.userId = userId;
         this.username = username;
         this.realName = realName;
         this.roles = roles;
+        this.permissions = permissions;
     }
 
     public String getToken() {
@@ -59,5 +65,13 @@ public class LoginVO {
 
     public void setRoles(List<String> roles) {
         this.roles = roles;
+    }
+
+    public List<String> getPermissions() {
+        return permissions;
+    }
+
+    public void setPermissions(List<String> permissions) {
+        this.permissions = permissions;
     }
 }

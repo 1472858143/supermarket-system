@@ -46,14 +46,70 @@
           <span class="sep">/</span>
           <span class="now">{{ currentTitle }}</span>
         </div>
-        <label class="search">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input v-model="globalKeyword" placeholder="搜索商品、订单、SKU..." />
-          <kbd>⌘K</kbd>
-        </label>
+        <div class="global-search" @click.stop>
+          <label class="search">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              ref="globalSearchInput"
+              v-model="globalKeyword"
+              placeholder="全局搜索商品、采购单..."
+              @focus="openGlobalSearch"
+              @keydown.enter.prevent="submitGlobalSearch"
+              @keydown.escape.prevent="closeGlobalSearch"
+            />
+            <kbd>Ctrl K</kbd>
+          </label>
+          <div v-if="globalSearchOpen && (trimmedGlobalKeyword || globalSearchLoading)" class="global-search-panel">
+            <div class="global-search-head">
+              <span>全局搜索</span>
+              <button type="button" @click="clearGlobalSearch">清空</button>
+            </div>
+            <div v-if="globalSearchLoading" class="global-search-state">正在查询...</div>
+            <div v-else-if="globalSearchError" class="global-search-state error">{{ globalSearchError }}</div>
+            <template v-else>
+              <section v-if="globalProductItems.length" class="global-search-section">
+                <div class="global-search-section-title">商品</div>
+                <button
+                  v-for="item in globalProductItems"
+                  :key="item.key"
+                  class="global-search-row"
+                  type="button"
+                  @click="selectGlobalSearchItem(item)"
+                >
+                  <span class="global-search-type">{{ item.typeLabel }}</span>
+                  <span class="global-search-copy">
+                    <b>{{ item.title }}</b>
+                    <small>{{ item.description }}</small>
+                  </span>
+                </button>
+              </section>
+              <section v-if="globalPurchaseItems.length" class="global-search-section">
+                <div class="global-search-section-title">采购单</div>
+                <button
+                  v-for="item in globalPurchaseItems"
+                  :key="item.key"
+                  class="global-search-row"
+                  type="button"
+                  @click="selectGlobalSearchItem(item)"
+                >
+                  <span class="global-search-type">{{ item.typeLabel }}</span>
+                  <span class="global-search-copy">
+                    <b>{{ item.title }}</b>
+                    <small>{{ item.description }}</small>
+                  </span>
+                </button>
+              </section>
+              <div v-if="!globalSearchItems.length" class="global-search-state">未找到匹配的商品或采购单</div>
+              <div class="global-search-actions">
+                <button class="global-search-action" type="button" @click="openGlobalSearchTarget('products')">查看全部商品结果</button>
+                <button class="global-search-action" type="button" @click="openGlobalSearchTarget('purchases')">查看全部采购单结果</button>
+              </div>
+            </template>
+          </div>
+        </div>
         <div class="top-tools">
           <button class="icon-btn" type="button" title="扫码">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -81,13 +137,32 @@
             </svg>
           </button>
           <div class="divider-v"></div>
-          <button class="user" type="button" @click="handleLogout" title="点击退出登录">
-            <span class="avatar">{{ userInitial }}</span>
-            <span class="info">
-              <span class="name">{{ authStore.username || '未登录' }}</span>
-              <span class="role">{{ roleText }}</span>
-            </span>
-          </button>
+          <div class="user-menu-wrapper" @click.stop>
+            <button
+              class="user"
+              type="button"
+              title="打开用户菜单"
+              aria-haspopup="menu"
+              :aria-expanded="String(userMenuOpen)"
+              @click.stop="toggleUserMenu"
+            >
+              <span class="avatar">{{ userInitial }}</span>
+              <span class="info">
+                <span class="name">{{ authStore.username || '未登录' }}</span>
+                <span class="role">{{ roleText }}</span>
+              </span>
+            </button>
+            <div v-if="userMenuOpen" class="user-menu" role="menu">
+              <button class="logout-action" type="button" role="menuitem" @click="handleLogout">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                <span>退出登录</span>
+              </button>
+            </div>
+          </div>
         </div>
       </header>
       <main class="content">
@@ -98,20 +173,31 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { menuRoutes } from '../router'
+import { listProducts } from '../api/product'
+import { listPurchaseInbounds } from '../api/purchaseInbound'
 import { useAuthStore } from '../stores/auth'
-import { hasAnyRole } from '../utils/permission'
+import { hasRouteAccess } from '../utils/permission'
 import logoImage from '@/assets/logo.svg'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const globalKeyword = ref('')
+const globalSearchInput = ref(null)
+const globalSearchOpen = ref(false)
+const globalSearchLoading = ref(false)
+const globalSearchError = ref('')
+const globalProductResults = ref([])
+const globalPurchaseResults = ref([])
+const userMenuOpen = ref(false)
+let globalSearchTimer = null
+let globalSearchToken = 0
 
 const visibleMenus = computed(() =>
-  menuRoutes.filter((item) => !item.meta.hideInMenu && hasAnyRole(authStore.roles, item.meta.roles))
+  menuRoutes.filter((item) => !item.meta.hideInMenu && hasRouteAccess(authStore.roles, authStore.permissions, item.meta))
 )
 
 const navIcons = {
@@ -132,14 +218,13 @@ const navIcons = {
 const navMeta = {
   '/dashboard': { icon: 'dashboard' },
   '/users': { icon: 'users' },
-  '/products': { icon: 'box' },
   '/products-modern': { icon: 'box' },
   '/product-categories-modern': { icon: 'box' },
   '/suppliers': { icon: 'truck' },
   '/categories': { icon: 'box' },
   '/stocks': { icon: 'home', badge: '12' },
   '/inventory-center': { icon: 'warehouse' },
-  '/purchase-inbounds': { icon: 'cart', badge: '3' },
+  '/purchase-inbounds': { icon: 'cart' },
   '/outbounds': { icon: 'outbound' },
   '/stockchecks': { icon: 'clipboard' },
   '/reports': { icon: 'bars' },
@@ -178,9 +263,180 @@ const roleText = computed(() =>
   authStore.roles.map((role) => roleLabels[role] || role).join('、') || '未分配角色'
 )
 const userInitial = computed(() => (authStore.username || '用').slice(0, 1))
+const trimmedGlobalKeyword = computed(() => globalKeyword.value.trim())
+const canSearchProducts = computed(() => canAccessRoute('/products-modern'))
+const canSearchPurchases = computed(() => canAccessRoute('/purchase-inbounds'))
+const globalProductItems = computed(() =>
+  globalProductResults.value.map((product) => ({
+    key: `product-${product.id}`,
+    id: product.id,
+    type: 'product',
+    typeLabel: '商品',
+    path: '/products-modern',
+    query: { keyword: trimmedGlobalKeyword.value },
+    title: product.productName || product.productCode || '未命名商品',
+    description: compactText([product.productCode, product.brandName, product.categoryName])
+  }))
+)
+const globalPurchaseItems = computed(() =>
+  globalPurchaseResults.value.map((order) => ({
+    key: `purchase-${order.id}`,
+    id: order.id,
+    type: 'purchase',
+    typeLabel: '采购单',
+    path: '/purchase-inbounds',
+    query: { module: 'orders', keyword: trimmedGlobalKeyword.value },
+    title: order.orderNo || `采购单 #${order.id}`,
+    description: compactText([order.supplierName, order.supplierCode, purchaseStatusText(order.status)])
+  }))
+)
+const globalSearchItems = computed(() => [...globalProductItems.value, ...globalPurchaseItems.value])
+
+watch(globalKeyword, (value) => {
+  window.clearTimeout(globalSearchTimer)
+  const keyword = value.trim()
+  globalSearchError.value = ''
+  if (!keyword) {
+    globalProductResults.value = []
+    globalPurchaseResults.value = []
+    globalSearchLoading.value = false
+    globalSearchOpen.value = false
+    return
+  }
+  globalSearchOpen.value = true
+  globalSearchTimer = window.setTimeout(() => {
+    performGlobalSearch(keyword)
+  }, 250)
+})
+
+function canAccessRoute(path) {
+  const item = menuRoutes.find((routeItem) => routeItem.path === path)
+  return !item || hasRouteAccess(authStore.roles, authStore.permissions, item.meta)
+}
+
+function compactText(parts) {
+  return parts.filter((part) => part !== undefined && part !== null && String(part).trim()).join(' / ') || '-'
+}
+
+function purchaseStatusText(status) {
+  const labels = {
+    DRAFT: '草稿',
+    SUBMITTED: '待审批',
+    RETURNED: '退回修改',
+    APPROVED: '待入库',
+    PARTIALLY_INBOUNDED: '部分入库',
+    INBOUNDED: '已完成',
+    CANCELLED: '已取消',
+    CLOSED: '已关闭'
+  }
+  return labels[status] || status || ''
+}
+
+function openGlobalSearch() {
+  if (!trimmedGlobalKeyword.value) return
+  globalSearchOpen.value = true
+  if (!globalSearchItems.value.length && !globalSearchLoading.value) {
+    performGlobalSearch(trimmedGlobalKeyword.value)
+  }
+}
+
+function closeGlobalSearch() {
+  globalSearchOpen.value = false
+}
+
+function clearGlobalSearch() {
+  globalKeyword.value = ''
+  globalProductResults.value = []
+  globalPurchaseResults.value = []
+  globalSearchError.value = ''
+  globalSearchLoading.value = false
+  globalSearchInput.value?.focus()
+}
+
+async function performGlobalSearch(keyword = trimmedGlobalKeyword.value) {
+  const token = ++globalSearchToken
+  globalSearchLoading.value = true
+  globalSearchError.value = ''
+  try {
+    const [productData, purchaseData] = await Promise.all([
+      canSearchProducts.value ? listProducts({ keyword, page: 1, pageSize: 5 }) : Promise.resolve({ items: [] }),
+      canSearchPurchases.value ? listPurchaseInbounds({ keyword, page: 1, pageSize: 5 }) : Promise.resolve({ items: [] })
+    ])
+    if (token !== globalSearchToken) return
+    globalProductResults.value = productData.items || []
+    globalPurchaseResults.value = purchaseData.items || []
+  } catch (error) {
+    if (token !== globalSearchToken) return
+    globalProductResults.value = []
+    globalPurchaseResults.value = []
+    globalSearchError.value = error.message || '全局搜索失败'
+  } finally {
+    if (token === globalSearchToken) globalSearchLoading.value = false
+  }
+}
+
+function selectGlobalSearchItem(item) {
+  closeGlobalSearch()
+  router.push({ path: item.path, query: item.query })
+}
+
+function submitGlobalSearch() {
+  if (!trimmedGlobalKeyword.value) return
+  const firstItem = globalSearchItems.value[0]
+  if (firstItem) {
+    selectGlobalSearchItem(firstItem)
+    return
+  }
+  openGlobalSearchTarget(canSearchProducts.value ? 'products' : 'purchases')
+}
+
+function openGlobalSearchTarget(target) {
+  const keyword = trimmedGlobalKeyword.value
+  if (!keyword) return
+  closeGlobalSearch()
+  if (target === 'purchases') {
+    router.push({ path: '/purchase-inbounds', query: { module: 'orders', keyword } })
+    return
+  }
+  router.push({ path: '/products-modern', query: { keyword } })
+}
+
+function handleGlobalSearchShortcut(event) {
+  if ((event.ctrlKey || event.metaKey) && event.key?.toLowerCase() === 'k') {
+    event.preventDefault()
+    globalSearchInput.value?.focus()
+    openGlobalSearch()
+  }
+}
+
+function closeUserMenu() {
+  userMenuOpen.value = false
+}
+
+function toggleUserMenu() {
+  userMenuOpen.value = !userMenuOpen.value
+}
 
 async function handleLogout() {
+  closeUserMenu()
+  closeGlobalSearch()
   await authStore.logout()
   router.replace('/login')
 }
+
+function closeFloatingPanels() {
+  closeUserMenu()
+  closeGlobalSearch()
+}
+
+onMounted(() => {
+  document.addEventListener('click', closeFloatingPanels)
+  document.addEventListener('keydown', handleGlobalSearchShortcut)
+})
+
+onBeforeUnmount(() => {
+  window.clearTimeout(globalSearchTimer)
+  document.removeEventListener('click', closeFloatingPanels)
+  document.removeEventListener('keydown', handleGlobalSearchShortcut)
+})
 </script>

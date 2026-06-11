@@ -7,13 +7,13 @@
       </svg>
       <input
         v-model.trim="query.keyword"
-        placeholder="按商品名 / SKU / 条码搜索..."
+        placeholder="按商品名称 / 品牌 / SPU 编码搜索..."
         @keydown.enter="$emit('reload')"
       />
     </label>
     <div class="modern-filter-divider"></div>
     <label class="modern-field">
-      <span class="modern-field-label">分类</span>
+      <span class="modern-field-label">基础品类</span>
       <select v-model="query.categoryId" class="select" @change="$emit('reset-page')">
         <option value="">全部</option>
         <option v-for="category in categories" :key="category.id" :value="String(category.id)">
@@ -31,26 +31,15 @@
       </select>
     </label>
     <label class="modern-field">
-      <span class="modern-field-label">价格</span>
-      <input
-        v-model.number="query.priceMin"
-        class="input compact-input"
-        type="number"
-        min="0"
-        placeholder="最低"
-        @input="$emit('reset-page')"
-      />
-      <span class="modern-range-sep">-</span>
-      <input
-        v-model.number="query.priceMax"
-        class="input compact-input"
-        type="number"
-        min="0"
-        placeholder="最高"
-        @input="$emit('reset-page')"
-      />
+      <span class="modern-field-label">状态</span>
+      <select v-model="query.filterStatus" class="select" @change="$emit('reset-page')">
+        <option value="">全部</option>
+        <option value="active">启用</option>
+        <option value="disabled">停用</option>
+        <option value="draft">草稿</option>
+      </select>
     </label>
-    <button class="btn ghost sm" type="button" @click="$emit('reset')">
+    <button class="btn ghost sm" type="button" style="margin-left: auto" @click="$emit('reset')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <polyline points="1 4 1 10 7 10" />
         <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />

@@ -6,6 +6,11 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const layout = readFileSync(resolve(root, 'src/layout/AdminLayout.vue'), 'utf8')
 const styles = readFileSync(resolve(root, 'src/assets/styles.css'), 'utf8')
 const router = readFileSync(resolve(root, 'src/router/index.js'), 'utf8')
+const reportRouteIndex = router.indexOf("path: '/reports'")
+const supplierRouteIndex = router.indexOf("path: '/suppliers'")
+const routeLine = (path) => router.split('\n').find((line) => line.includes(`path: '${path}'`)) || ''
+const stocksRouteLine = routeLine('/stocks')
+const purchaseInboundHasSidebarBadge = /['"]\/purchase-inbounds['"]:\s*\{[^}]*badge\s*:/.test(layout)
 
 const checks = [
   ['AdminLayout uses migrated app shell', layout.includes('class="app"')],
@@ -28,7 +33,11 @@ const checks = [
   ['styles compensate zoomed viewport height', styles.includes('calc(100vh / var(--admin-zoom))')],
   ['styles define sidebar scrollbar color', styles.includes('scrollbar-color: rgba(77, 155, 255, 0.42) transparent')],
   ['styles define webkit sidebar scrollbar thumb', styles.includes('.nav::-webkit-scrollbar-thumb')],
-  ['legacy category route is hidden from sidebar', /path:\s*'\/categories'[\s\S]*?hideInMenu:\s*true/.test(router)]
+  ['legacy category route is hidden from sidebar', /path:\s*'\/categories'[\s\S]*?hideInMenu:\s*true/.test(router)],
+  ['legacy stock management route is hidden from sidebar', /hideInMenu:\s*true/.test(stocksRouteLine)],
+  ['purchase inbound sidebar badge is removed', !purchaseInboundHasSidebarBadge],
+  ['supplier menu title is shortened to supplier', /path:\s*'\/suppliers'[\s\S]*?title:\s*'供应商'/.test(router)],
+  ['supplier menu route appears after report statistics', reportRouteIndex >= 0 && supplierRouteIndex > reportRouteIndex]
 ]
 
 const failures = checks.filter(([, pass]) => !pass)

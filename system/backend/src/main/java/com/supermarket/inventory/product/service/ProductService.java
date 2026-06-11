@@ -18,6 +18,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ProductService {
 
+    private static final String PRODUCT_CODE_PREFIX = "SPU";
+    private static final int PRODUCT_CODE_SEQUENCE_LENGTH = 6;
+    private static final int PRODUCT_CODE_MAX_SEQUENCE = 999999;
+
     private final ProductMapper productMapper;
     private final CategoryMapper categoryMapper;
     private final BrandService brandService;
@@ -55,10 +59,8 @@ public class ProductService {
 
     @Transactional
     public ProductVO create(ProductRequest request) {
-        productMapper.findByCode(request.getProductCode()).ifPresent(product -> {
-            throw new BusinessException("商品编号已存在");
-        });
         Product product = fromRequest(request);
+        product.setProductCode(nextProductCode());
         Long productId = productMapper.insert(product);
         Product created = productMapper.findById(productId)
                 .orElseThrow(() -> new BusinessException("商品创建失败"));
@@ -91,13 +93,32 @@ public class ProductService {
 
     private Product fromRequest(ProductRequest request) {
         Product product = new Product();
-        product.setProductCode(request.getProductCode().trim());
         product.setProductName(request.getProductName());
         product.setCategoryId(request.getCategoryId());
         brandService.requireEnabledBrand(request.getBrandId());
         product.setBrandId(request.getBrandId());
         product.setStatus(normalizeStatus(request.getStatus()));
         return product;
+    }
+
+    private String nextProductCode() {
+        String maxCode = productMapper.findMaxCode(PRODUCT_CODE_PREFIX + "%");
+        int sequence = 1;
+        if (maxCode != null) {
+            if (!maxCode.startsWith(PRODUCT_CODE_PREFIX)
+                    || maxCode.length() != PRODUCT_CODE_PREFIX.length() + PRODUCT_CODE_SEQUENCE_LENGTH) {
+                throw new BusinessException("商品SPU编码序号异常");
+            }
+            try {
+                sequence = Integer.parseInt(maxCode.substring(PRODUCT_CODE_PREFIX.length())) + 1;
+            } catch (NumberFormatException exception) {
+                throw new BusinessException("商品SPU编码序号异常");
+            }
+        }
+        if (sequence > PRODUCT_CODE_MAX_SEQUENCE) {
+            throw new BusinessException("商品SPU编码序号已达上限");
+        }
+        return PRODUCT_CODE_PREFIX + String.format("%0" + PRODUCT_CODE_SEQUENCE_LENGTH + "d", sequence);
     }
 
     private ProductVO toVO(Product product) {

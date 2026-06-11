@@ -91,8 +91,8 @@ class PurchaseInboundServiceTest {
     @Test
     void list_normalizesPaginationAndReturnsPageResult() {
         PurchaseInboundVO order = vo(100L);
-        when(purchaseInboundMapper.findPage("cola", 0, 100)).thenReturn(List.of(order));
-        when(purchaseInboundMapper.count("cola")).thenReturn(12L);
+        when(purchaseInboundMapper.findPage("cola", null, 0, 100)).thenReturn(List.of(order));
+        when(purchaseInboundMapper.count("cola", null)).thenReturn(12L);
 
         PageResult<PurchaseInboundVO> result = purchaseInboundService.list("cola", 0, 120);
 

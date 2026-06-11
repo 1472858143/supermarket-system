@@ -37,10 +37,11 @@ public class PurchaseInboundController {
     @GetMapping
     public ApiResponse<PageResult<PurchaseInboundVO>> list(
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String status,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer pageSize
     ) {
-        return ApiResponse.success(purchaseInboundService.list(keyword, page, pageSize));
+        return ApiResponse.success(purchaseInboundService.list(keyword, status, page, pageSize));
     }
 
     @GetMapping("/{id}")

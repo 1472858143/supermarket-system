@@ -39,15 +39,21 @@ public class AuthService {
                 .stream()
                 .map(Role::getRoleCode)
                 .toList();
-        CurrentUser currentUser = new CurrentUser(user.getId(), user.getUsername(), roles);
+        List<String> permissions = safeList(userMapper.findPermissionCodesByUserId(user.getId()));
+        CurrentUser currentUser = new CurrentUser(user.getId(), user.getUsername(), roles, permissions);
         String token = jwtTokenService.generateToken(currentUser);
-        return new LoginVO(token, user.getId(), user.getUsername(), user.getRealName(), roles);
+        return new LoginVO(token, user.getId(), user.getUsername(), user.getRealName(), roles, permissions);
     }
 
     public LoginVO current() {
         CurrentUser currentUser = CurrentUserContext.get();
         User user = userMapper.findById(currentUser.getUserId())
                 .orElseThrow(() -> new BusinessException(401, "用户不存在或已失效"));
-        return new LoginVO(null, user.getId(), user.getUsername(), user.getRealName(), currentUser.getRoles());
+        List<String> permissions = safeList(userMapper.findPermissionCodesByUserId(user.getId()));
+        return new LoginVO(null, user.getId(), user.getUsername(), user.getRealName(), currentUser.getRoles(), permissions);
+    }
+
+    private List<String> safeList(List<String> values) {
+        return values == null ? List.of() : values;
     }
 }

@@ -69,15 +69,20 @@ public class PurchaseInboundService {
         this.supplierSkuService = supplierSkuService;
     }
 
-    public PageResult<PurchaseInboundVO> list(String keyword, Integer page, Integer pageSize) {
+    public PageResult<PurchaseInboundVO> list(String keyword, String status, Integer page, Integer pageSize) {
         int normalizedPage = PageUtils.normalizePage(page);
         int normalizedPageSize = PageUtils.normalizePageSize(pageSize);
+        String normalizedStatus = normalizeStatus(status);
         return new PageResult<>(
-                purchaseInboundMapper.findPage(keyword, PageUtils.offset(normalizedPage, normalizedPageSize), normalizedPageSize),
-                purchaseInboundMapper.count(keyword),
+                purchaseInboundMapper.findPage(keyword, normalizedStatus, PageUtils.offset(normalizedPage, normalizedPageSize), normalizedPageSize),
+                purchaseInboundMapper.count(keyword, normalizedStatus),
                 normalizedPage,
                 normalizedPageSize
         );
+    }
+
+    public PageResult<PurchaseInboundVO> list(String keyword, Integer page, Integer pageSize) {
+        return list(keyword, null, page, pageSize);
     }
 
     public PurchaseInboundVO getById(Long id) {
@@ -348,6 +353,17 @@ public class PurchaseInboundService {
         try {
             return PurchaseInboundStatus.valueOf(status);
         } catch (IllegalArgumentException | NullPointerException exception) {
+            throw new BusinessException("采购单状态异常");
+        }
+    }
+
+    private String normalizeStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+        try {
+            return PurchaseInboundStatus.valueOf(status.trim()).name();
+        } catch (IllegalArgumentException exception) {
             throw new BusinessException("采购单状态异常");
         }
     }

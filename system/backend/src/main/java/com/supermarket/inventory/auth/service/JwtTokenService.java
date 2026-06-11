@@ -42,12 +42,13 @@ public class JwtTokenService {
             payload.put("userId", user.getUserId());
             payload.put("username", user.getUsername());
             payload.put("roles", user.getRoles());
+            payload.put("permissions", user.getPermissions());
             payload.put("exp", Instant.now().plusSeconds(expirationHours * 3600).getEpochSecond());
 
             String encodedHeader = base64Url(objectMapper.writeValueAsBytes(header));
             String encodedPayload = base64Url(objectMapper.writeValueAsBytes(payload));
             String signingInput = encodedHeader + "." + encodedPayload;
-            // Token 只保存身份和角色，不放密码、密码哈希或其他敏感配置。
+            // Token 只保存身份、角色和权限码，不放密码、密码哈希或其他敏感配置。
             String signature = sign(signingInput);
             return signingInput + "." + signature;
         } catch (Exception exception) {
@@ -79,7 +80,9 @@ public class JwtTokenService {
             String username = (String) payload.get("username");
             @SuppressWarnings("unchecked")
             List<String> roles = (List<String>) payload.get("roles");
-            return new CurrentUser(userId, username, roles);
+            @SuppressWarnings("unchecked")
+            List<String> permissions = (List<String>) payload.getOrDefault("permissions", List.of());
+            return new CurrentUser(userId, username, roles, permissions);
         } catch (BusinessException exception) {
             throw exception;
         } catch (Exception exception) {

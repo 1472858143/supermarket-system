@@ -82,6 +82,17 @@ CREATE TABLE user_role (
                                FOREIGN KEY (role_id) REFERENCES role(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE role_permission (
+                           id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                           role_id BIGINT NOT NULL,
+                           permission_code VARCHAR(80) NOT NULL,
+                           create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                           UNIQUE KEY uk_role_permission (role_id, permission_code),
+                           KEY idx_role_permission_code (permission_code),
+                           CONSTRAINT fk_role_permission_role
+                               FOREIGN KEY (role_id) REFERENCES role(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色权限表';
+
 CREATE TABLE sku (
                      id BIGINT PRIMARY KEY AUTO_INCREMENT,
                      product_id BIGINT NOT NULL COMMENT '所属商品主体',

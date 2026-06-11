@@ -87,6 +87,14 @@ public class ProductMapper {
         }
     }
 
+    public String findMaxCode(String pattern) {
+        return jdbcTemplate.queryForObject(
+                "select max(product_code) from product where product_code like ?",
+                String.class,
+                pattern
+        );
+    }
+
     public Long insert(Product product) {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {

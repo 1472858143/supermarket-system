@@ -239,23 +239,26 @@ public class PurchaseInboundMapper {
         );
     }
 
-    public long count(String keyword) {
+    public long count(String keyword, String status) {
         String like = "%" + (keyword == null ? "" : keyword.trim()) + "%";
         Long count = jdbcTemplate.queryForObject(
                 """
                 select count(*)
                 from purchase_inbound pi
                 inner join supplier s on s.id = pi.supplier_id
-                where pi.order_no like ? or pi.operator like ? or pi.remark like ?
-                   or s.supplier_code like ? or s.supplier_name like ?
-                   or exists (
-                       select 1
-                       from purchase_inbound_item item
-                       inner join sku k on k.id = item.sku_id
-                       inner join product p on p.id = k.product_id
-                       where item.purchase_inbound_id = pi.id
-                         and (k.sku_code like ? or k.sku_name like ? or p.product_code like ? or p.product_name like ?)
-                   )
+                where (
+                    pi.order_no like ? or pi.operator like ? or pi.remark like ?
+                    or s.supplier_code like ? or s.supplier_name like ?
+                    or exists (
+                        select 1
+                        from purchase_inbound_item item
+                        inner join sku k on k.id = item.sku_id
+                        inner join product p on p.id = k.product_id
+                        where item.purchase_inbound_id = pi.id
+                          and (k.sku_code like ? or k.sku_name like ? or p.product_code like ? or p.product_name like ?)
+                    )
+                )
+                   and (? is null or pi.status = ?)
                 """,
                 Long.class,
                 like,
@@ -266,28 +269,37 @@ public class PurchaseInboundMapper {
                 like,
                 like,
                 like,
-                like
+                like,
+                status,
+                status
         );
         return count == null ? 0L : count;
     }
 
-    public List<PurchaseInboundVO> findPage(String keyword, int offset, int pageSize) {
+    public long count(String keyword) {
+        return count(keyword, null);
+    }
+
+    public List<PurchaseInboundVO> findPage(String keyword, String status, int offset, int pageSize) {
         String like = "%" + (keyword == null ? "" : keyword.trim()) + "%";
         return jdbcTemplate.query(
                 """
                 select pi.*, s.supplier_code, s.supplier_name
                 from purchase_inbound pi
                 inner join supplier s on s.id = pi.supplier_id
-                where pi.order_no like ? or pi.operator like ? or pi.remark like ?
-                   or s.supplier_code like ? or s.supplier_name like ?
-                   or exists (
-                       select 1
-                       from purchase_inbound_item item
-                       inner join sku k on k.id = item.sku_id
-                       inner join product p on p.id = k.product_id
-                       where item.purchase_inbound_id = pi.id
-                         and (k.sku_code like ? or k.sku_name like ? or p.product_code like ? or p.product_name like ?)
-                   )
+                where (
+                    pi.order_no like ? or pi.operator like ? or pi.remark like ?
+                    or s.supplier_code like ? or s.supplier_name like ?
+                    or exists (
+                        select 1
+                        from purchase_inbound_item item
+                        inner join sku k on k.id = item.sku_id
+                        inner join product p on p.id = k.product_id
+                        where item.purchase_inbound_id = pi.id
+                          and (k.sku_code like ? or k.sku_name like ? or p.product_code like ? or p.product_name like ?)
+                    )
+                )
+                   and (? is null or pi.status = ?)
                 order by pi.id desc
                 limit ? offset ?
                 """,
@@ -301,9 +313,15 @@ public class PurchaseInboundMapper {
                 like,
                 like,
                 like,
+                status,
+                status,
                 pageSize,
                 offset
         );
+    }
+
+    public List<PurchaseInboundVO> findPage(String keyword, int offset, int pageSize) {
+        return findPage(keyword, null, offset, pageSize);
     }
 
     public void insertApprovalLog(PurchaseInboundApprovalLog log) {

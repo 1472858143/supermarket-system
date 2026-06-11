@@ -10,6 +10,7 @@ export const useAuthStore = defineStore('auth', {
   getters: {
     isLoggedIn: (state) => Boolean(state.token),
     roles: (state) => state.user?.roles || [],
+    permissions: (state) => state.user?.permissions || [],
     username: (state) => state.user?.username || ''
   },
   actions: {
@@ -45,6 +46,9 @@ export const useAuthStore = defineStore('auth', {
     },
     hasRole(role) {
       return this.roles.includes(role)
+    },
+    hasPermission(permission) {
+      return this.permissions.includes(permission)
     }
   }
 })

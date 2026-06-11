@@ -59,16 +59,17 @@ class ProductServiceTest {
     void create_insertsProductWithoutCreatingSku() {
         ProductRequest request = productRequest("P001", "Cola", 3L, 5L, 1);
 
-        when(productMapper.findByCode("P001")).thenReturn(Optional.empty());
+        when(productMapper.findMaxCode("SPU%")).thenReturn(null);
         when(brandService.requireEnabledBrand(5L)).thenReturn(brand(5L, "BRD000005", "Coke", 1));
         when(productMapper.insert(any(Product.class))).thenReturn(7L);
-        when(productMapper.findById(7L)).thenReturn(Optional.of(product(7L, "P001", "Cola", 3L, 5L, 1)));
+        when(productMapper.findById(7L)).thenReturn(Optional.of(product(7L, "SPU000001", "Cola", 3L, 5L, 1)));
         when(categoryMapper.findById(3L)).thenReturn(Optional.of(category(3L, "Drink")));
         when(brandService.getById(5L)).thenReturn(brand(5L, "BRD000005", "Coke", 1));
         when(skuService.listByProductId(7L)).thenReturn(List.of());
 
         ProductVO vo = productService.create(request);
 
+        assertThat(vo.getProductCode()).isEqualTo("SPU000001");
         assertThat(vo.getSkus()).isEmpty();
         assertThat(vo.getBrandId()).isEqualTo(5L);
         assertThat(vo.getBrandCode()).isEqualTo("BRD000005");
@@ -78,7 +79,7 @@ class ProductServiceTest {
         ArgumentCaptor<Product> productCaptor = ArgumentCaptor.forClass(Product.class);
         verify(productMapper).insert(productCaptor.capture());
         Product inserted = productCaptor.getValue();
-        assertThat(inserted.getProductCode()).isEqualTo("P001");
+        assertThat(inserted.getProductCode()).isEqualTo("SPU000001");
         assertThat(inserted.getProductName()).isEqualTo("Cola");
         assertThat(inserted.getCategoryId()).isEqualTo(3L);
         assertThat(inserted.getBrandId()).isEqualTo(5L);
@@ -86,10 +87,29 @@ class ProductServiceTest {
     }
 
     @Test
+    void create_generatesNextSpuCode() {
+        ProductRequest request = productRequest(null, "Cola", 3L, 5L, 1);
+
+        when(productMapper.findMaxCode("SPU%")).thenReturn(null);
+        when(brandService.requireEnabledBrand(5L)).thenReturn(brand(5L, "BRD000005", "Coke", 1));
+        when(productMapper.insert(any(Product.class))).thenReturn(7L);
+        when(productMapper.findById(7L)).thenReturn(Optional.of(product(7L, "SPU000001", "Cola", 3L, 5L, 1)));
+        when(categoryMapper.findById(3L)).thenReturn(Optional.of(category(3L, "Drink")));
+        when(brandService.getById(5L)).thenReturn(brand(5L, "BRD000005", "Coke", 1));
+        when(skuService.listByProductId(7L)).thenReturn(List.of());
+
+        ProductVO vo = productService.create(request);
+
+        assertThat(vo.getProductCode()).isEqualTo("SPU000001");
+        ArgumentCaptor<Product> productCaptor = ArgumentCaptor.forClass(Product.class);
+        verify(productMapper).insert(productCaptor.capture());
+        assertThat(productCaptor.getValue().getProductCode()).isEqualTo("SPU000001");
+    }
+
+    @Test
     void create_rejectsDisabledBrand() {
         ProductRequest request = productRequest("P001", "Cola", 3L, 5L, 1);
 
-        when(productMapper.findByCode("P001")).thenReturn(Optional.empty());
         when(brandService.requireEnabledBrand(5L)).thenThrow(new BusinessException("品牌已停用"));
 
         assertThatThrownBy(() -> productService.create(request))

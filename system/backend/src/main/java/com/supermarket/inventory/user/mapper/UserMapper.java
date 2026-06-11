@@ -212,6 +212,38 @@ public class UserMapper {
         }
     }
 
+    public Optional<Role> findRoleById(Long id) {
+        try {
+            return Optional.ofNullable(jdbcTemplate.queryForObject(
+                    "select * from role where id = ?",
+                    roleRowMapper,
+                    id
+            ));
+        } catch (EmptyResultDataAccessException exception) {
+            return Optional.empty();
+        }
+    }
+
+    public Optional<Role> findRoleByName(String roleName) {
+        try {
+            return Optional.ofNullable(jdbcTemplate.queryForObject(
+                    "select * from role where role_name = ?",
+                    roleRowMapper,
+                    roleName
+            ));
+        } catch (EmptyResultDataAccessException exception) {
+            return Optional.empty();
+        }
+    }
+
+    public String findMaxRoleCode(String pattern) {
+        return jdbcTemplate.queryForObject(
+                "select max(role_code) from role where role_code like ?",
+                String.class,
+                pattern
+        );
+    }
+
     public Long insertRole(String roleName, String roleCode, String remark) {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {
@@ -226,5 +258,55 @@ public class UserMapper {
         }, keyHolder);
         Number key = keyHolder.getKey();
         return key == null ? null : key.longValue();
+    }
+
+    public Long countUsersByRoleId(Long roleId) {
+        return jdbcTemplate.queryForObject(
+                "select count(*) from user_role where role_id = ?",
+                Long.class,
+                roleId
+        );
+    }
+
+    public Long countRolePermissions(Long roleId) {
+        return jdbcTemplate.queryForObject(
+                "select count(*) from role_permission where role_id = ?",
+                Long.class,
+                roleId
+        );
+    }
+
+    public List<String> findPermissionCodesByRoleId(Long roleId) {
+        return jdbcTemplate.queryForList(
+                "select permission_code from role_permission where role_id = ? order by permission_code",
+                String.class,
+                roleId
+        );
+    }
+
+    public List<String> findPermissionCodesByUserId(Long userId) {
+        return jdbcTemplate.queryForList(
+                """
+                select distinct rp.permission_code
+                from user_role ur
+                inner join role_permission rp on rp.role_id = ur.role_id
+                where ur.user_id = ?
+                order by rp.permission_code
+                """,
+                String.class,
+                userId
+        );
+    }
+
+    public void deleteRolePermissions(Long roleId) {
+        jdbcTemplate.update("delete from role_permission where role_id = ?", roleId);
+    }
+
+    public void insertRolePermission(Long roleId, String permissionCode) {
+        jdbcTemplate.update(
+                "insert into role_permission(role_id, permission_code) values (?, ?)",
+                roleId,
+                permissionCode
+        );
     }
 }

@@ -19,7 +19,7 @@
           </svg>
           刷新库存
         </button>
-        <button class="btn" type="button" @click="goStockcheck">
+        <button class="btn" type="button" @click="activeTab = 'stockcheck'">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
             <rect x="8" y="2" width="8" height="4" rx="1" />
@@ -37,25 +37,57 @@
       </div>
     </div>
 
-    <section class="inventory-kpi-row">
-      <div v-for="card in kpiCards" :key="card.key" class="inventory-kpi" :style="{ '--accent': card.color }">
+    <section class="kpi-row inventory-kpi-row">
+      <div v-for="card in kpiCards" :key="card.key" class="kpi inventory-kpi-card" :style="{ '--accent': card.color }">
         <div class="label">{{ card.label }}</div>
         <div class="value">{{ card.value }}<span class="unit">{{ card.unit }}</span></div>
-        <div class="sub">{{ card.sub }}</div>
+        <div>
+          <span class="delta" :class="{ down: card.down }">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <polyline :points="card.down ? '6 9 12 15 18 9' : '6 15 12 9 18 15'" />
+            </svg>
+            {{ card.delta }}
+          </span>
+          <span class="sub">{{ card.sub }}</span>
+        </div>
+        <div class="icon-wrap" aria-hidden="true">
+          <svg v-if="card.icon === 'sku'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+            <path d="M3.27 6.96 12 12.01l8.73-5.05" />
+            <path d="M12 22.08V12" />
+          </svg>
+          <svg v-else-if="card.icon === 'quantity'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18" />
+            <path d="M3 12h18" />
+            <path d="M3 18h18" />
+            <path d="M7 6v12" />
+            <path d="M17 6v12" />
+          </svg>
+          <svg v-else-if="card.icon === 'warning'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <path d="M12 9v4" />
+            <path d="M12 17h.01" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 6 9 17l-5-5" />
+            <circle cx="12" cy="12" r="10" />
+          </svg>
+        </div>
       </div>
     </section>
 
     <nav class="sub-tabs">
-      <a class="on" href="#" @click.prevent>实时库存<span class="ct">{{ formatNumber(filteredRows.length) }}</span></a>
-      <a href="#" @click.prevent="goStockcheck">盘点管理</a>
-      <a href="#" @click.prevent="safeAction('库存流水需后端提供变更日志分页接口', 'error')">库存流水</a>
-      <a href="#" @click.prevent="safeAction('调拨功能当前未接入仓库接口', 'error')">调拨管理</a>
+      <a :class="{ on: activeTab === 'stock' }" href="#" @click.prevent="activeTab = 'stock'">实时库存<span class="ct">{{ formatNumber(filteredRows.length) }}</span></a>
+      <a :class="{ on: activeTab === 'stockcheck' }" href="#" @click.prevent="activeTab = 'stockcheck'">盘点管理</a>
     </nav>
 
     <div v-if="message" class="message" :class="messageType === 'error' ? 'message-error' : 'message-success'">
       {{ message }}
     </div>
 
+    <StockchecksView v-if="activeTab === 'stockcheck'" />
+
+    <template v-if="activeTab === 'stock'">
     <section class="inventory-filter-bar">
       <label class="inventory-filter-search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -212,6 +244,7 @@
         </div>
       </div>
     </article>
+    </template>
 
     <BaseDialog v-model="batchDialogVisible" title="库存批次">
       <div v-if="batchStock" class="inventory-batch-summary">
@@ -297,6 +330,7 @@ import BaseDialog from '../../components/BaseDialog.vue'
 import PermissionButton from '../../components/PermissionButton.vue'
 import StatusTag from '../../components/StatusTag.vue'
 import { listStocks, updateStockLimit } from '../../api/stock'
+import StockchecksView from '../stockcheck/StockchecksView.vue'
 import {
   closeStockBatch,
   damageStockBatch,
@@ -383,6 +417,7 @@ const InventoryBatchDialog = defineComponent({
 })
 
 const router = useRouter()
+const activeTab = ref('stock')
 const rows = ref([])
 const total = ref(0)
 const loading = ref(false)
@@ -480,12 +515,20 @@ const pageButtons = computed(() => {
   return pages
 })
 
-const kpiCards = computed(() => [
-  { key: 'total', label: 'SKU库存项', value: formatNumber(total.value || rows.value.length), unit: '项', sub: '来自实时库存接口', color: '#4d9bff' },
-  { key: 'quantity', label: '库存总量', value: formatNumber(sumBy(normalizedRows.value, 'quantity')), unit: '件', sub: '按基础单位汇总', color: '#34d399' },
-  { key: 'warning', label: '库存预警', value: formatNumber(statusCounts.value.low + statusCounts.value.high + statusCounts.value.out), unit: '项', sub: '低库存、售罄或超上限', color: '#fbbf24' },
-  { key: 'normal', label: '状态正常', value: formatNumber(statusCounts.value.normal), unit: '项', sub: '处于上下限范围内', color: '#c084fc' }
-])
+const kpiCards = computed(() => {
+  const quantityTotal = sumBy(normalizedRows.value, 'quantity')
+  const warningTotal = statusCounts.value.low + statusCounts.value.high + statusCounts.value.out
+  const normalRate = statusCounts.value.all
+    ? Math.round((statusCounts.value.normal / statusCounts.value.all) * 100)
+    : 0
+
+  return [
+    { key: 'total', label: 'SKU库存项', value: formatNumber(total.value || rows.value.length), unit: '项', delta: `记录 ${formatNumber(statusCounts.value.all)}`, sub: '来自实时库存接口', color: '#4d9bff', icon: 'sku' },
+    { key: 'quantity', label: '库存总量', value: formatNumber(quantityTotal), unit: '件', delta: '实时汇总', sub: '按基础单位汇总', color: '#34d399', icon: 'quantity' },
+    { key: 'warning', label: '库存预警', value: formatNumber(warningTotal), unit: '项', delta: `需处理 ${formatNumber(warningTotal)}`, sub: '低库存、售罄或超上限', color: '#fbbf24', down: true, icon: 'warning' },
+    { key: 'normal', label: '状态正常', value: formatNumber(statusCounts.value.normal), unit: '项', delta: `正常率 ${normalRate}%`, sub: '处于上下限范围内', color: '#c084fc', icon: 'normal' }
+  ]
+})
 
 const currentStockLabel = computed(() => {
   if (!editingStock.value) return ''
@@ -524,10 +567,6 @@ function showMessage(text, type = 'success') {
   showMessage.timer = window.setTimeout(() => {
     message.value = ''
   }, 2600)
-}
-
-function safeAction(text, type = 'success') {
-  showMessage(text, type)
 }
 
 async function loadData() {
@@ -681,10 +720,6 @@ async function submitDamage() {
 
 function goPurchaseInbound() {
   router.push('/purchase-inbounds')
-}
-
-function goStockcheck() {
-  router.push('/stockchecks')
 }
 
 function thumbText(name) {

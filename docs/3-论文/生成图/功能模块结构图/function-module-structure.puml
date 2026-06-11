@@ -1,0 +1,78 @@
+@startuml
+' 超市库存管理系统功能模块结构图
+skinparam monochrome true
+skinparam shadowing false
+skinparam componentStyle uml2
+skinparam defaultFontName "SimSun"
+skinparam packageStyle rectangle
+left to right direction
+
+actor "管理员/普通用户" as Actor
+
+package "表现层：Vue 3 管理后台" {
+  [前端应用\nRouter / Pinia / Axios] as Frontend <<component>>
+  [登录认证] as FLogin <<component>>
+  [首页工作台] as FDashboard <<component>>
+  [用户权限] as FUser <<component>>
+  [商品中心] as FProduct <<component>>
+  [供应商管理] as FSupplier <<component>>
+  [采购入库] as FPurchase <<component>>
+  [库存中心] as FStock <<component>>
+  [出库管理] as FOutbound <<component>>
+  [盘点管理] as FCheck <<component>>
+  [报表统计] as FReport <<component>>
+  [系统信息] as FSystem <<component>>
+}
+
+package "应用服务层：Spring Boot REST API" {
+  [认证与权限模块\nAuth / User / Role / Permission] as Auth <<component>>
+  [公共支撑模块\nResponse / Exception / Page] as Common <<component>>
+  [主数据模块\nCategory / Brand / SPU / SKU / Unit] as Master <<component>>
+  [供应商模块\nSupplier / SupplierSku] as Supplier <<component>>
+  [采购入库模块\nPlan / Approval / Receipt] as Purchase <<component>>
+  [库存总账模块\nStock / StockLog] as Stock <<component>>
+  [库存批次模块\nStockBatch / BatchLog] as Batch <<component>>
+  [出库管理模块\nOutbound / FEFO] as Outbound <<component>>
+  [盘点管理模块\nStockCheck] as Check <<component>>
+  [报表统计模块\nReport] as Report <<component>>
+  [系统信息模块\nSystem] as System <<component>>
+}
+
+database "数据层：MySQL 8.0\n业务数据库 market" as DB
+
+Actor --> Frontend
+Frontend --> Auth : REST API
+Frontend --> Master
+Frontend --> Supplier
+Frontend --> Purchase
+Frontend --> Stock
+Frontend --> Outbound
+Frontend --> Check
+Frontend --> Report
+Frontend --> System
+
+Auth ..> Master : 鉴权/权限
+Common ..> Master : 统一响应/异常/分页
+Master --> Supplier
+Supplier --> Purchase
+Purchase --> Stock
+Stock --> Batch
+Outbound --> Stock
+Check --> Stock
+Check --> Batch
+Report ..> Purchase : 只读统计
+Report ..> Outbound : 只读统计
+Report ..> Stock : 只读统计
+Report ..> Batch : 只读统计
+
+Auth --> DB
+Master --> DB
+Supplier --> DB
+Purchase --> DB
+Stock --> DB
+Batch --> DB
+Outbound --> DB
+Check --> DB
+Report --> DB
+System --> DB
+@enduml

@@ -3,9 +3,12 @@ package com.supermarket.inventory.user.controller;
 import com.supermarket.inventory.auth.security.RequireRoles;
 import com.supermarket.inventory.common.response.ApiResponse;
 import com.supermarket.inventory.common.response.PageResult;
+import com.supermarket.inventory.user.dto.RoleCreateRequest;
+import com.supermarket.inventory.user.dto.RolePermissionUpdateRequest;
 import com.supermarket.inventory.user.dto.UserCreateRequest;
 import com.supermarket.inventory.user.dto.UserUpdateRequest;
 import com.supermarket.inventory.user.service.UserService;
+import com.supermarket.inventory.user.vo.PermissionModuleVO;
 import com.supermarket.inventory.user.vo.RoleVO;
 import com.supermarket.inventory.user.vo.UserVO;
 import jakarta.validation.Valid;
@@ -44,6 +47,24 @@ public class UserController {
     @GetMapping("/roles")
     public ApiResponse<List<RoleVO>> roles() {
         return ApiResponse.success(userService.roles());
+    }
+
+    @GetMapping("/permissions")
+    public ApiResponse<List<PermissionModuleVO>> permissions() {
+        return ApiResponse.success(userService.permissionCatalog());
+    }
+
+    @PostMapping("/roles")
+    public ApiResponse<RoleVO> createRole(@Valid @RequestBody RoleCreateRequest request) {
+        return ApiResponse.success(userService.createRole(request));
+    }
+
+    @PutMapping("/roles/{id}/permissions")
+    public ApiResponse<RoleVO> updateRolePermissions(
+            @PathVariable Long id,
+            @RequestBody RolePermissionUpdateRequest request
+    ) {
+        return ApiResponse.success(userService.updateRolePermissions(id, request));
     }
 
     @PostMapping

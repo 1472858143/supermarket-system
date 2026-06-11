@@ -1,10 +1,17 @@
 package com.supermarket.inventory.user.vo;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 public class RoleVO {
 
     private Long id;
     private String roleName;
     private String roleCode;
+    private String remark;
+    private LocalDateTime createTime;
+    private Long userCount;
+    private List<String> permissionCodes;
 
     public RoleVO() {
     }
@@ -37,5 +44,37 @@ public class RoleVO {
 
     public void setRoleCode(String roleCode) {
         this.roleCode = roleCode;
+    }
+
+    public String getRemark() {
+        return remark;
+    }
+
+    public void setRemark(String remark) {
+        this.remark = remark;
+    }
+
+    public LocalDateTime getCreateTime() {
+        return createTime;
+    }
+
+    public void setCreateTime(LocalDateTime createTime) {
+        this.createTime = createTime;
+    }
+
+    public Long getUserCount() {
+        return userCount;
+    }
+
+    public void setUserCount(Long userCount) {
+        this.userCount = userCount;
+    }
+
+    public List<String> getPermissionCodes() {
+        return permissionCodes;
+    }
+
+    public void setPermissionCodes(List<String> permissionCodes) {
+        this.permissionCodes = permissionCodes;
     }
 }

@@ -5,7 +5,6 @@ import jakarta.validation.constraints.NotNull;
 
 public class ProductRequest {
 
-    @NotBlank(message = "商品编号不能为空")
     private String productCode;
 
     @NotBlank(message = "商品名称不能为空")

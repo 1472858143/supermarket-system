@@ -9,23 +9,16 @@
         <line x1="3" y1="12" x2="3.01" y2="12" />
         <line x1="3" y1="18" x2="3.01" y2="18" />
       </svg>
-      <span>商品列表</span>
+      <span>商品档案</span>
       <span class="ct">{{ formatNumber(totalCount) }}</span>
     </RouterLink>
-    <RouterLink :class="{ on: active === 'base' }" to="/products">
+    <RouterLink :class="{ on: active === 'sku' }" to="/product-skus-modern">
       <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <line x1="12" y1="5" x2="12" y2="19" />
-        <line x1="5" y1="12" x2="19" y2="12" />
+        <polygon points="12 2 2 7 12 12 22 7 12 2" />
+        <polyline points="2 17 12 22 22 17" />
+        <polyline points="2 12 12 17 22 12" />
       </svg>
-      <span>基础维护</span>
-    </RouterLink>
-    <RouterLink :class="{ on: active === 'create' }" to="/products-modern/new">
-      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M12 5v14" />
-        <path d="M5 12h14" />
-        <path d="M4 4h7l2 3h7v13H4z" />
-      </svg>
-      <span>新建商品</span>
+      <span>SKU 管理</span>
     </RouterLink>
     <RouterLink :class="{ on: active === 'category' }" to="/product-categories-modern">
       <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

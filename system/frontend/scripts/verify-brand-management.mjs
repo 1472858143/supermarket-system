@@ -42,8 +42,6 @@ expectExcludes(backendRoot, 'src/main/java/com/supermarket/inventory/sku/entity/
 expectIncludes(frontendRoot, 'src/api/brand.js', "request.get('/brands/options')")
 expectIncludes(frontendRoot, 'src/views/brand/BrandsView.vue', '品牌管理')
 expectIncludes(frontendRoot, 'src/router/index.js', "path: '/brands'")
-expectIncludes(frontendRoot, 'src/views/product/ProductsView.vue', 'brandId')
-expectIncludes(frontendRoot, 'src/views/product/ProductCreateModernView.vue', 'productForm.brandId')
 expectIncludes(frontendRoot, 'src/views/product/ProductModernView.vue', 'brandOptions')
 expectIncludes(frontendRoot, 'src/views/product/components/ProductFilterBar.vue', 'brands')
 expectIncludes(frontendRoot, 'src/views/product/components/ProductVisualTable.vue', 'brandName')
